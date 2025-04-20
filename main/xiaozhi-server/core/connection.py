@@ -30,6 +30,7 @@ from core.mcp.manager import MCPManager
 from config.config_loader import get_private_config_from_api
 from config.manage_api_client import DeviceNotFoundException, DeviceBindException
 from core.utils.output_counter import add_device_output
+from core.thingspanel_client import ThingsPanelClient
 
 TAG = __name__
 
@@ -47,6 +48,10 @@ class ConnectionHandler:
         self.config = copy.deepcopy(config)
         self.logger = setup_logging()
         self.auth = AuthMiddleware(config)
+
+        # 初始化 ThingsPanel 客户端
+        self.thingspanel = ThingsPanelClient(config)
+        self.logger.bind(tag=TAG).info(f"初始化 ThingsPanel 客户端")
 
         self.need_bind = False
         self.bind_code = None
@@ -154,6 +159,11 @@ class ConnectionHandler:
             self.websocket = ws
             self.session_id = str(uuid.uuid4())
 
+            # 更新TP设备状态为在线
+            device_id = self.headers.get("device-id")
+            if device_id:
+                self.thingspanel.update_device_status(device_id, 1)
+
             # 启动超时检查任务
             self.timeout_task = asyncio.create_task(self._check_timeout())
 
@@ -163,6 +173,7 @@ class ConnectionHandler:
 
             # 获取差异化配置
             private_config = self._initialize_private_config()
+
             # 异步初始化
             self.executor.submit(self._initialize_components, private_config)
             # tts 消化线程
@@ -200,6 +211,10 @@ class ConnectionHandler:
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"保存记忆失败: {e}")
         finally:
+            # 更新TP设备状态为离线
+            device_id = self.headers.get("device-id")
+            if device_id:
+                self.thingspanel.update_device_status(device_id, 0)
             await self.close(ws)
 
     async def _route_message(self, message):
