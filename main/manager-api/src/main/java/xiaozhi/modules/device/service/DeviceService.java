@@ -35,7 +35,7 @@ public interface DeviceService {
     /**
      * 设备激活
      */
-    Boolean deviceActivation(String agentId, String activationCode);
+    DeviceEntity deviceActivation(String agentId, String activationCode);
 
     /**
      * 删除此用户的所有设备

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
@@ -23,8 +24,10 @@ import xiaozhi.modules.device.dto.DeviceRegisterDTO;
 import xiaozhi.modules.device.dto.DeviceUnBindDTO;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.service.DeviceService;
+import xiaozhi.modules.device.service.ThingsPanelService;
 import xiaozhi.modules.security.user.SecurityUser;
 
+@Slf4j
 @Tag(name = "设备管理")
 @AllArgsConstructor
 @RestController
@@ -33,12 +36,14 @@ public class DeviceController {
     private final DeviceService deviceService;
 
     private final RedisUtils redisUtils;
+    private final ThingsPanelService thingsPanelService;
 
     @PostMapping("/bind/{agentId}/{deviceCode}")
     @Operation(summary = "绑定设备")
     @RequiresPermissions("sys:role:normal")
     public Result<Void> bindDevice(@PathVariable String agentId, @PathVariable String deviceCode) {
-        deviceService.deviceActivation(agentId, deviceCode);
+        DeviceEntity deviceInfo = deviceService.deviceActivation(agentId, deviceCode);
+        thingsPanelService.registerDevice(deviceInfo);
         return new Result<>();
     }
 
