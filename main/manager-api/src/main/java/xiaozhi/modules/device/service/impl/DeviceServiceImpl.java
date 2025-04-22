@@ -251,17 +251,20 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         if (StringUtils.isNotBlank(cachedCode)) {
             code.setCode(cachedCode);
             code.setMessage(frontedUrl + "\n" + cachedCode);
+            code.setChallenge(deviceId);
         } else {
             String newCode = RandomUtil.randomNumbers(6);
             code.setCode(newCode);
             code.setMessage(frontedUrl + "\n" + newCode);
+            code.setChallenge(deviceId);
 
             Map<String, Object> dataMap = new HashMap<>();
             dataMap.put("id", deviceId);
             dataMap.put("mac_address", deviceId);
 
-            dataMap.put("board", (deviceReport.getChipModelName() != null) ? deviceReport.getChipModelName()
-                    : (deviceReport.getBoard() != null ? deviceReport.getBoard().getType() : "unknown"));
+            dataMap.put("board", (deviceReport.getBoard() != null && deviceReport.getBoard().getType() != null)
+                    ? deviceReport.getBoard().getType()
+                    : (deviceReport.getChipModelName() != null ? deviceReport.getChipModelName() : "unknown"));
             dataMap.put("app_version", (deviceReport.getApplication() != null)
                     ? deviceReport.getApplication().getVersion()
                     : null);
