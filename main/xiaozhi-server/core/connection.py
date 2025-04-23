@@ -192,6 +192,8 @@ class ConnectionHandler:
                 async for message in self.websocket:
                     await self._route_message(message)
             except websockets.exceptions.ConnectionClosed:
+                if device_id:
+                    self.thingspanel.update_device_status(device_id, 0)
                 self.logger.bind(tag=TAG).info("客户端断开连接")
 
         except AuthenticationError as e:
