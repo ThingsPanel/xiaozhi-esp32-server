@@ -134,3 +134,7 @@ class LLMProvider(LLMProviderBase):
             yield f"JSON解码错误：{e}"
         except Exception as e:
             yield f"发生错误：{e}"
+
+    def response_with_functions(self, session_id, dialogue, functions=None):
+        logger.bind(tag=TAG).info(f"gemini暂未实现完整的工具调用（function call）")
+        return self.response(session_id, dialogue)

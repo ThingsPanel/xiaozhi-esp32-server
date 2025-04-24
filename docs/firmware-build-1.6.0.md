@@ -1,60 +1,52 @@
-# esp32固件编译
+# 编译1.6.0版本esp32固件
 
-## 第1步 准备你的ota地址
-如果你按照教程使用的是全模块部署，就应该会有ota地址。
-
-此刻，请你用浏览器打开你的ota地址，例如我的ota地址
-```
-http://192.168.1.25:8002/xiaozhi/ota/
-```
-
-如果显示“OTA接口运行正常，websocket集群数量：X”。那就往下。
-
-如果显示“OTA接口运行不正常”，大概是你还没在`智控台`配置`Websocket`地址。那就：
-
-- 1、使用超级管理员登录智控台
-
-- 2、顶部菜单点击`参数管理`
-
-- 3、在列表中找到`server.websocket`项目，输入你的`Websocket`地址。例如我的就是
-
-```
-ws://192.168.1.25:8000/xiaozhi/v1/
-```
-
-配置完后，再使用浏览器刷新你的ota接口地址，看看是不是正常了。如果还不正常就，就再次确认一下Websocket是否正常启动，是否配置了Websocket地址。
-
-## 第2步 配置环境
+## 第1步 配置环境
 先按照这个教程配置项目环境[《Windows搭建 ESP IDF 5.3.2开发环境以及编译小智》](https://icnynnzcwou8.feishu.cn/wiki/JEYDwTTALi5s2zkGlFGcDiRknXf)
 
-## 第3步 打开配置文件
+## 第2步 打开配置文件
 配置好编译环境后，下载虾哥iaozhi-esp32项目源码，
 
-从这里下载虾哥[xiaozhi-esp32项目源码](https://github.com/78/xiaozhi-esp32)。
 
-下载后，打开`xiaozhi-esp32/main/Kconfig.projbuild`文件。
+从这里下载虾哥[xiaozhi-esp32项目1.6.0版本源码](https://github.com/78/xiaozhi-esp32/archive/refs/tags/v1.6.0.zip)。
 
-## 第4步 修改OTA地址
+从这里下载虾哥[xiaozhi-esp32项目1.6.0版本源码](https://github.com/78/xiaozhi-esp32/archive/refs/tags/v1.6.0.zip)。
 
-找到`OTA_VERSION_URL`的`default`的内容，把`https://api.tenclass.net/xiaozhi/ota/`
-   改成你自己的地址，例如，我的接口地址是`http://192.168.1.25:8002/xiaozhi/ota/`，就把内容改成这个。
+从这里下载虾哥[xiaozhi-esp32项目1.6.0版本源码](https://github.com/78/xiaozhi-esp32/archive/refs/tags/v1.6.0.zip)。
+
+下载后，解压缩包，打开`xiaozhi-esp32/main/Kconfig.projbuild`文件。
+
+
+## 第3步 修改WEBSOCKET地址
+找到`WEBSOCKET_URL`的`default`的内容，把`wss://api.tenclass.net/xiaozhi/v1/`
+   改成你自己的地址，例如，我的接口地址是`ws://192.168.1.25:8000/xiaozhi/v1/`，就把内容改成这个。
 
 修改前：
+
 ```
-config OTA_VERSION_URL
-    string "OTA Version URL"
-    default "https://api.tenclass.net/xiaozhi/ota/"
+config WEBSOCKET_URL
+    depends on CONNECTION_TYPE_WEBSOCKET
+    string "Websocket URL"
+    default "wss://api.tenclass.net/xiaozhi/v1/"
     help
-        The application will access this URL to check for updates.
+        Communication with the server through websocket after wake up.
 ```
-修改后：
+
+修改后(示例)：
+
 ```
-config OTA_VERSION_URL
-    string "OTA Version URL"
-    default "http://192.168.1.25:8002/xiaozhi/ota/"
+config WEBSOCKET_URL
+    depends on CONNECTION_TYPE_WEBSOCKET
+    string "Websocket URL"
+    default "ws://192.168.1.25:8000/xiaozhi/v1/"
     help
-        The application will access this URL to check for updates.
+        Communication with the server through websocket after wake up.
 ```
+
+注意：你的地址是`ws://`开头，不是`wss://`开头，一定不要写错了。
+
+注意：你的地址是`ws://`开头，不是`wss://`开头，一定不要写错了。
+
+注意：你的地址是`ws://`开头，不是`wss://`开头，一定不要写错了。
 
 ## 第4步 设置编译参数
 

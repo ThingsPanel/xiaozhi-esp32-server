@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from config.logger import setup_logging
 from plugins_func.register import register_function, ToolType, ActionResponse, Action
+from core.utils.util import get_ip_info
 
 TAG = __name__
 logger = setup_logging()
@@ -11,9 +12,12 @@ GET_WEATHER_FUNCTION_DESC = {
     "function": {
         "name": "get_weather",
         "description": (
-            "获取某个地点的天气，用户应提供一个位置，比如用户说杭州天气，参数为：杭州。"
+            "获取某个地点的天气信息。当用户询问与天气相关的问题（例如'今天的天气怎么样？'、'明天会下雨吗？'、'广州天气如何？'等），"
+            "或对话中包含'天气'字眼时，调用此功能。用户可以提供具体位置（如城市名），"
+            "如果未提供位置，则自动获取用户当前位置查询天气。"
             "如果用户说的是省份，默认用省会城市。如果用户说的不是省份或城市而是一个地名，"
             "默认用该地所在省份的省会城市。"
+            "当IP解析失败会使用默认地址"
         ),
         "parameters": {
             "type": "object",
@@ -57,6 +61,7 @@ WEATHER_CODE_MAP = {
     "900": "热", "901": "冷", "999": "未知"
 }
 
+
 def fetch_city_info(location, api_key):
     url = f"https://geoapi.qweather.com/v2/city/lookup?key={api_key}&location={location}&lang=zh"
     response = requests.get(url, headers=HEADERS).json()
@@ -97,27 +102,47 @@ def parse_weather_info(soup):
 def get_weather(conn, location: str = None, lang: str = "zh_CN"):
     api_key = conn.config["plugins"]["get_weather"]["api_key"]
     default_location = conn.config["plugins"]["get_weather"]["default_location"]
-    location = location or conn.client_ip_info.get("city") or default_location
-    logger.bind(tag=TAG).debug(f"获取天气: {location}")
+    print("用户设置的default_location为:", default_location)
+    client_ip = conn.client_ip
+    print("用户提供的location为:", location)
+    # 优先使用用户提供的location参数
+    if not location:
+        # 通过客户端IP解析城市
+        if client_ip:
+            # 动态解析IP对应的城市信息
+            ip_info = get_ip_info(client_ip, logger)
+            print("解析用户IP后的城市为：", ip_info)
+            location = ip_info.get("city") if ip_info and "city" in ip_info else None
+        else:
+            # 若IP解析失败或无IP，使用默认位置
+            location = default_location
+            print("解析失败，将使用默认地址", location)
 
     city_info = fetch_city_info(location, api_key)
     if not city_info:
         return ActionResponse(Action.REQLLM, f"未找到相关的城市: {location}，请确认地点是否正确", None)
-
     soup = fetch_weather_page(city_info['fxLink'])
     if not soup:
         return ActionResponse(Action.REQLLM, None, "请求失败")
-
     city_name, current_abstract, current_basic, temps_list = parse_weather_info(soup)
-    weather_report = f"根据下列数据，用{lang}回应用户的查询天气请求：\n{city_name}未来7天天气:\n"
-    for i, (date, weather, high, low) in enumerate(temps_list):
-        if high and low:
-            weather_report += f"{date}: {low}到{high}, {weather}\n"
-    weather_report += (
-        f"当前天气: {current_abstract}\n"
-        f"当前天气参数: {current_basic}\n"
-        f"(确保只报告指定单日的天气情况，除非未来会出现异常天气；或者用户明确要求想要了解多日天气，如果未指定，默认报告今天的天气。"
-        "参数为0的值不需要报告给用户，每次都报告体感温度，根据语境选择合适的参数内容告知用户，并对参数给出相应评价)"
-    )
+
+    print(f"当前查询的城市名称是: {city_name}")
+
+    weather_report = f"您查询的位置是：{city_name}\n\n当前天气: {current_abstract}\n"
+
+    # 添加有效的当前天气参数
+    if current_basic:
+        weather_report += "详细参数：\n"
+        for key, value in current_basic.items():
+            if value != "0":  # 过滤无效值
+                weather_report += f"  · {key}: {value}\n"
+
+    # 添加7天预报
+    weather_report += "\n未来7天预报：\n"
+    for date, weather, high, low in temps_list:
+        weather_report += f"{date}: {weather}，气温 {low}~{high}\n"
+
+    # 提示语
+    weather_report += "\n（如需某一天的具体天气，请告诉我日期）"
 
     return ActionResponse(Action.REQLLM, weather_report, None)

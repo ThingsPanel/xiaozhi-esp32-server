@@ -243,12 +243,12 @@ class ConnectionHandler:
         """加载意图识别"""
         self._initialize_intent()
         """加载位置信息"""
-        self.client_ip_info = get_ip_info(self.client_ip, self.logger)
-        if self.client_ip_info is not None and "city" in self.client_ip_info:
-            self.logger.bind(tag=TAG).info(f"Client ip info: {self.client_ip_info}")
-            self.prompt = self.prompt + f"\nuser location:{self.client_ip_info}"
-
-            self.dialogue.update_system_message(self.prompt)
+        # self.client_ip_info = get_ip_info(self.client_ip, self.logger)
+        # if self.client_ip_info is not None and "city" in self.client_ip_info:
+        #     self.logger.bind(tag=TAG).info(f"Client ip info: {self.client_ip_info}")
+        #     self.prompt = self.prompt + f"\nuser location:{self.client_ip_info}"
+        #
+        #     self.dialogue.update_system_message(self.prompt)
 
     def _initialize_private_config(self):
         read_config_from_api = self.config.get("read_config_from_api", False)

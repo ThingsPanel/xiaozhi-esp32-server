@@ -63,13 +63,6 @@ const routes = [
     }
   },
   {
-    path: '/test',
-    name: 'TestServer',
-    component: function () {
-      return import('../views/test.vue')
-    }
-  },
-  {
     path: '/params-management',
     name: 'ParamsManagement',
     component: function () {
@@ -78,6 +71,17 @@ const routes = [
     meta: {
       requiresAuth: true,
       title: '参数管理'
+    }
+  },
+  {
+    path: '/ota-management',
+    name: 'OtaManagement',
+    component: function () {
+      return import('../views/OtaManagement.vue')
+    },
+    meta: {
+      requiresAuth: true,
+      title: 'OTA管理'
     }
   },
 ]

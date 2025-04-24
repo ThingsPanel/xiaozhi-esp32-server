@@ -13,7 +13,7 @@ def append_devices_to_prompt(conn):
             "functions", []
         )
         if "hass_get_state" in funcs or "hass_set_state" in funcs:
-            prompt = "下面是我家智能设备，可以通过homeassistant控制\n"
+            prompt = "\n下面是我家智能设备列表（位置，设备名，entity_id），可以通过homeassistant控制\n"
             devices = conn.config["plugins"]["home_assistant"].get("devices", [])
             if len(devices) == 0:
                 return
