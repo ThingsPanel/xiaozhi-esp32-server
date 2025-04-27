@@ -78,4 +78,12 @@ public interface DeviceService extends BaseService<DeviceEntity> {
      * @return 激活码
      */
     String geCodeByDeviceId(String deviceId);
+
+    /**
+     * 更新设备状态
+     * 
+     * @param deviceId 设备ID
+     * @param status 状态
+     */
+    void updateDeviceStatus(String deviceId, Integer status);
 }
