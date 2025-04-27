@@ -44,19 +44,11 @@
         <!-- 右侧内容 -->
         <div class="content-area">
           <el-card class="model-card" shadow="never">
-              <el-table
-                ref="modelTable"
-                style="width: 100%"
-                v-loading="loading"
-                element-loading-text="拼命加载中"
-                element-loading-spinner="el-icon-loading"
-                element-loading-background="rgba(255, 255, 255, 0.7)"
-                :header-cell-style="{ background: 'transparent' }"
-                :data="modelList"
-                class="data-table"
-                header-row-class-name="table-header"
-                :header-cell-class-name="headerCellClassName"
-                @selection-change="handleSelectionChange">
+            <el-table ref="modelTable" style="width: 100%" v-loading="loading" element-loading-text="拼命加载中"
+              element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.7)"
+              :header-cell-style="{ background: 'transparent' }" :data="modelList" class="data-table"
+              header-row-class-name="table-header" :header-cell-class-name="headerCellClassName"
+              @selection-change="handleSelectionChange">
               <el-table-column type="selection" width="55" align="center"></el-table-column>
               <el-table-column label="模型ID" prop="id" align="center"></el-table-column>
               <el-table-column label="模型名称" prop="modelName" align="center"></el-table-column>
@@ -136,6 +128,9 @@
       <TtsModel :visible.sync="ttsDialogVisible" :ttsModelId="selectedTtsModelId" />
       <AddModelDialog :modelType="activeTab" :visible.sync="addDialogVisible" @confirm="handleAddConfirm" />
     </div>
+    <el-footer>
+      <version-footer />
+    </el-footer>
   </div>
 </template>
 
@@ -145,9 +140,9 @@ import AddModelDialog from "@/components/AddModelDialog.vue";
 import HeaderBar from "@/components/HeaderBar.vue";
 import ModelEditDialog from "@/components/ModelEditDialog.vue";
 import TtsModel from "@/components/TtsModel.vue";
-
+import VersionFooter from "@/components/VersionFooter.vue";
 export default {
-  components: { HeaderBar, ModelEditDialog, TtsModel, AddModelDialog },
+  components: { HeaderBar, ModelEditDialog, TtsModel, AddModelDialog, VersionFooter },
   data() {
     return {
       addDialogVisible: false,
@@ -520,8 +515,9 @@ export default {
 
 .nav-panel .el-menu-item {
   height: 50px;
+  background: #e9f0ff;
   line-height: 50px;
-  border-radius: 4px;
+  border-radius: 4px 0 0 4px !important;
   transition: all 0.3s;
   display: flex !important;
   justify-content: flex-end;
@@ -532,8 +528,7 @@ export default {
 }
 
 .nav-panel .el-menu-item.is-active {
-  background: #e9f0ff;
-  color: #0ba6f4 !important;
+  background: #5778ff;
   position: relative;
   padding-left: 40px !important;
 }
@@ -546,7 +541,7 @@ export default {
   transform: translateY(-50%);
   width: 13px;
   height: 13px;
-  background: #409EFF;
+  background: #fff;
   border-radius: 50%;
   box-shadow: 0 0 4px rgba(64, 158, 255, 0.5);
 }
@@ -758,7 +753,7 @@ export default {
 }
 
 ::v-deep .nav-panel .el-menu-item.is-active .menu-text {
-  color: #409EFF !important;
+  color: #fff !important;
 }
 
 ::v-deep .data-table {
@@ -929,17 +924,19 @@ export default {
   background-color: rgba(255, 255, 255, 0.6) !important;
   backdrop-filter: blur(2px);
 }
+
 ::v-deep .el-loading-spinner .circular {
   width: 28px;
   height: 28px;
 }
+
 ::v-deep .el-loading-spinner .path {
   stroke: #6b8cff;
 }
+
 ::v-deep .el-loading-text {
   color: #6b8cff !important;
   font-size: 14px;
   margin-top: 8px;
 }
-
 </style>

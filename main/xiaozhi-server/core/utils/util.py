@@ -159,7 +159,6 @@ def check_model_key(modelType, modelKey):
         raise ValueError(
             "你还没配置" + modelType + "的密钥，请检查一下所使用的LLM是否配置了密钥"
         )
-        return False
     return True
 
 
@@ -211,7 +210,7 @@ def check_ffmpeg_installed():
 def extract_json_from_string(input_string):
     """提取字符串中的 JSON 部分"""
     pattern = r"(\{.*\})"
-    match = re.search(pattern, input_string, re.DOTALL)  #添加 re.DOTALL
+    match = re.search(pattern, input_string, re.DOTALL)  # 添加 re.DOTALL
     if match:
         return match.group(1)  # 返回提取的 JSON 字符串
     return None

@@ -17,4 +17,6 @@ public interface OtaService extends BaseService<OtaEntity> {
     void update(OtaEntity entity);
 
     void delete(String[] ids);
+
+    OtaEntity getLatestOta(String type);
 }

@@ -36,24 +36,24 @@ ws://192.168.1.25:8000/xiaozhi/v1/
 
 ## 第4步 修改OTA地址
 
-找到`OTA_VERSION_URL`的`default`的内容，把`https://api.tenclass.net/xiaozhi/ota/`
+找到`OTA_URL`的`default`的内容，把`https://api.tenclass.net/xiaozhi/ota/`
    改成你自己的地址，例如，我的接口地址是`http://192.168.1.25:8002/xiaozhi/ota/`，就把内容改成这个。
 
 修改前：
 ```
-config OTA_VERSION_URL
-    string "OTA Version URL"
+config OTA_URL
+    string "Default OTA URL"
     default "https://api.tenclass.net/xiaozhi/ota/"
     help
-        The application will access this URL to check for updates.
+        The application will access this URL to check for new firmwares and server address.
 ```
 修改后：
 ```
-config OTA_VERSION_URL
-    string "OTA Version URL"
+config OTA_URL
+    string "Default OTA URL"
     default "http://192.168.1.25:8002/xiaozhi/ota/"
     help
-        The application will access this URL to check for updates.
+        The application will access this URL to check for new firmwares and server address.
 ```
 
 ## 第4步 设置编译参数
@@ -83,12 +83,6 @@ idf.py menuconfig
 idf.py build
 ```
 
-如果是vscode安装的idf可以使用`F1`或者`ctrl+shift+p`,输入idf然后直接选择进行编译
-
-还可以直接进行烧录不用接下来的操作
-
-<img src="./images/vscode_idf.png" width="500px"/>
-
 ## 第6步 打包bin固件
 
 ```
@@ -96,7 +90,7 @@ cd scripts
 python release.py
 ```
 
-编译成功后，会在项目根目录下的`build`目录下生成固件文件`merged-binary.bin`。
+上面的打包命令执行完成后，会在项目根目录下的`build`目录下生成固件文件`merged-binary.bin`。
 这个`merged-binary.bin`就是要烧录到硬件上的固件文件。
 
 注意：如果执行到第二命令后，报了“zip”相关的错误，请忽略这个错误，只要`build`目录下生成固件文件`merged-binary.bin`

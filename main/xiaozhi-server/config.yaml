@@ -314,6 +314,17 @@ LLM:
     bot_id: "你的bot_id"
     user_id: "你的user_id"
     personal_access_token: 你的coze个人令牌
+  VolcesAiGatewayLLM:
+    # 火山引擎 - 边缘大模型网关
+    # 定义LLM API类型
+    type: openai
+    # 先开通服务，打开以下网址，创建网关访问密钥，搜索并勾选 Doubao-pro-32k-functioncall ，开通
+    # 如果需要使用边缘大模型网关提供的语音合成，一并勾选 Doubao-语音合成 ，另见 TTS.VolcesAiGatewayTTS 配置
+    # https://console.volcengine.com/vei/aigateway/
+    # 开通后，进入这里获取密钥：https://console.volcengine.com/vei/aigateway/tokens-list
+    base_url: https://ai-gateway.vei.volces.com/v1
+    model_name: doubao-pro-32k-functioncall
+    api_key: 你的网关访问密钥
   LMStudioLLM:
     # 定义LLM API类型
     type: openai
@@ -382,6 +393,20 @@ TTS:
     output_dir: tmp/
     access_token: 你的coze web key
     response_format: wav
+  VolcesAiGatewayTTS:
+    type: openai
+    # 火山引擎 - 边缘大模型网关
+    # 先开通服务，打开以下网址，创建网关访问密钥，搜索并勾选 Doubao-语音合成 ，开通
+    # 如果需要使用边缘大模型网关提供的 LLM，一并勾选 Doubao-pro-32k-functioncall ，另见 LLM.VolcesAiGatewayLLM 配置
+    # https://console.volcengine.com/vei/aigateway/
+    # 开通后，进入这里获取密钥：https://console.volcengine.com/vei/aigateway/tokens-list
+    api_key: 你的网关访问密钥
+    api_url: https://ai-gateway.vei.volces.com/v1/audio/speech
+    model: doubao-tts
+    # 音色列表见 https://www.volcengine.com/docs/6561/1257544
+    voice: zh_male_shaonianzixin_moon_bigtts
+    speed: 1
+    output_dir: tmp/
   FishSpeech:
     # 定义TTS API类型
     #启动tts方法：

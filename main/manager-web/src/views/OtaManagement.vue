@@ -15,7 +15,9 @@
             <div class="content-panel">
                 <div class="content-area">
                     <el-card class="params-card" shadow="never">
-                        <el-table ref="paramsTable" :data="paramsList" class="transparent-table"
+                        <el-table ref="paramsTable" :data="paramsList" class="transparent-table" v-loading="loading"
+                            element-loading-text="拼命加载中" element-loading-spinner="el-icon-loading"
+                            element-loading-background="rgba(255, 255, 255, 0.7)"
                             :header-cell-class-name="headerCellClassName">
                             <el-table-column label="选择" align="center" width="120">
                                 <template slot-scope="scope">
@@ -39,6 +41,11 @@
                             <el-table-column label="创建时间" prop="createDate" align="center">
                                 <template slot-scope="scope">
                                     {{ formatDate(scope.row.createDate) }}
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="更新时间" prop="updateDate" align="center">
+                                <template slot-scope="scope">
+                                    {{ formatDate(scope.row.updateDate) }}
                                 </template>
                             </el-table-column>
                             <el-table-column label="操作" align="center">
@@ -91,7 +98,9 @@
         <!-- 新增/编辑固件对话框 -->
         <firmware-dialog :title="dialogTitle" :visible.sync="dialogVisible" :form="firmwareForm" @submit="handleSubmit"
             @cancel="dialogVisible = false" />
-
+        <el-footer>
+            <version-footer />
+        </el-footer>
     </div>
 </template>
 
@@ -99,14 +108,16 @@
 import Api from "@/apis/api";
 import FirmwareDialog from "@/components/FirmwareDialog.vue";
 import HeaderBar from "@/components/HeaderBar.vue";
+import VersionFooter from "@/components/VersionFooter.vue";
 import { FIRMWARE_TYPES } from "@/utils";
 import { formatDate, formatFileSize } from "@/utils/format";
 
 export default {
-    components: { HeaderBar, FirmwareDialog },
+    components: { HeaderBar, FirmwareDialog, VersionFooter },
     data() {
         return {
             searchName: "",
+            loading: false,
             paramsList: [],
             firmwareList: [],
             currentPage: 1,
@@ -158,6 +169,7 @@ export default {
             this.fetchFirmwareList();
         },
         fetchFirmwareList() {
+            this.loading = true;
             const params = {
                 pageNum: this.currentPage,
                 pageSize: this.pageSize,
@@ -166,6 +178,7 @@ export default {
                 order: "desc"
             };
             Api.ota.getOtaList(params, (res) => {
+                this.loading = false;
                 res = res.data
                 if (res.code === 0) {
                     this.firmwareList = res.data.list.map(item => ({
@@ -460,12 +473,20 @@ export default {
 
 .params-card {
     background: white;
-    border: none;
-    box-shadow: none;
+    flex: 1;
     display: flex;
     flex-direction: column;
-    flex: 1;
+    border: none;
+    box-shadow: none;
     overflow: hidden;
+
+    ::v-deep .el-card__body {
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+    }
 }
 
 .table_bottom {
@@ -513,7 +534,7 @@ export default {
 .custom-pagination {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 5px;
 
     .el-select {
         margin-right: 8px;
@@ -580,21 +601,67 @@ export default {
 
 .page-size-select {
     width: 100px;
-}
+    margin-right: 10px;
 
-.custom-selection-header {
-    text-align: center !important;
+    :deep(.el-input__inner) {
+        height: 32px;
+        line-height: 32px;
+        border-radius: 4px;
+        border: 1px solid #e4e7ed;
+        background: #dee7ff;
+        color: #606266;
+        font-size: 14px;
+    }
+
+    :deep(.el-input__suffix) {
+        right: 6px;
+        width: 15px;
+        height: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        top: 6px;
+        border-radius: 4px;
+    }
+
+    :deep(.el-input__suffix-inner) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
+
+    :deep(.el-icon-arrow-up:before) {
+        content: "";
+        display: inline-block;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 9px solid #606266;
+        position: relative;
+        transform: rotate(0deg);
+        transition: transform 0.3s;
+    }
 }
 
 :deep(.transparent-table) {
-    background-color: transparent;
+    background: white;
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+
+    .el-table__body-wrapper {
+        flex: 1;
+        overflow-y: auto;
+        max-height: none !important;
+    }
 
     .el-table__header-wrapper {
         flex-shrink: 0;
     }
 
     .el-table__header th {
-        background-color: white !important;
+        background: white !important;
         color: black;
         font-weight: 600;
         height: 40px;
@@ -603,10 +670,12 @@ export default {
         border-bottom: 1px solid #e4e7ed;
     }
 
-    .el-table__body-wrapper {
+    .el-table__body tr {
+        background-color: white;
+
         td {
-            background-color: transparent;
-            border-bottom: 1px solid #e4e7ed;
+            border-top: 1px solid rgba(0, 0, 0, 0.04);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
             padding: 8px 0;
             height: 40px;
             color: #606266;
@@ -616,6 +685,10 @@ export default {
 
     .el-table__row:hover>td {
         background-color: #f5f7fa !important;
+    }
+
+    &::before {
+        display: none;
     }
 }
 
@@ -639,5 +712,45 @@ export default {
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
     background-color: #5f70f3 !important;
     border-color: #5f70f3 !important;
+}
+
+:deep(.el-loading-mask) {
+    background-color: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(2px);
+}
+
+:deep(.el-loading-spinner .path) {
+    stroke: #6b8cff;
+}
+
+.el-table {
+    --table-max-height: calc(100vh - 40vh);
+    max-height: var(--table-max-height);
+
+    .el-table__body-wrapper {
+        max-height: calc(var(--table-max-height) - 40px);
+    }
+}
+
+@media (min-width: 1144px) {
+    .table_bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 40px;
+    }
+
+    :deep(.transparent-table) {
+        .el-table__body tr {
+            td {
+                padding-top: 16px;
+                padding-bottom: 16px;
+            }
+
+            &+tr {
+                margin-top: 10px;
+            }
+        }
+    }
 }
 </style>

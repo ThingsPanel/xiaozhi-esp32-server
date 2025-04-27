@@ -39,7 +39,7 @@ const cdnResources = {
 const useCDN = process.env.VUE_APP_USE_CDN === 'true';
 
 module.exports = defineConfig({
-  productionSourceMap: process.env.NODE_ENV === 'production' ? false : true, // 生产环境不生成 source map
+  productionSourceMap: process.env.NODE_ENV !=='production', // 生产环境不生成 source map
   devServer: {
     port: 8001, // 指定端口为 8001
     proxy: {
@@ -52,6 +52,7 @@ module.exports = defineConfig({
       overlay: false, // 不显示 webpack 错误覆盖层
     },
   },
+  publicPath: process.env.VUE_APP_PUBLIC_PATH || "/",
   chainWebpack: config => {
 
     // 修改 HTML 插件配置，动态插入 CDN 链接

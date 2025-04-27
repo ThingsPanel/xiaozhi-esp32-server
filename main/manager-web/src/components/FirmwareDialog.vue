@@ -5,7 +5,7 @@
         <el-input v-model="form.firmwareName" placeholder="请输入固件名称(板子+版本号)"></el-input>
       </el-form-item>
       <el-form-item label="固件类型" prop="type">
-        <el-select v-model="form.type" placeholder="请选择固件类型" style="width: 100%;" filterable>
+        <el-select v-model="form.type" placeholder="请选择固件类型" style="width: 100%;" filterable :disabled="isTypeDisabled">
           <el-option v-for="item in firmwareTypes" :key="item.key" :label="item.name" :value="item.key"></el-option>
         </el-select>
       </el-form-item>
@@ -21,6 +21,9 @@
         </el-upload>
         <el-progress v-if="isUploading || uploadStatus === 'success'" :percentage="uploadProgress"
           :status="uploadStatus"></el-progress>
+        <div class="hint-text">
+          <span>温馨提示：请上传xiaozhi.bin文件，而不是merged-binary.bin文件</span>
+        </div>
       </el-form-item>
       <el-form-item label="备注" prop="remark">
         <el-input type="textarea" v-model="form.remark" placeholder="请输入备注信息"></el-input>
@@ -74,6 +77,12 @@ export default {
           { required: false, message: '请上传固件文件', trigger: 'change' }
         ]
       }
+    }
+  },
+  computed: {
+    isTypeDisabled() {
+      // 如果有id，说明是编辑模式，禁用类型选择
+      return !!this.form.id
     }
   },
   methods: {
@@ -194,5 +203,13 @@ export default {
   line-height: 1.2;
   padding-top: 5px;
   color: #909399;
+}
+
+.hint-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #979db1;
+  font-size: 11px;
 }
 </style>

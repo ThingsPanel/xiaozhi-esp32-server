@@ -2,6 +2,7 @@ import json
 from config.logger import setup_logging
 import requests
 from core.providers.llm.base import LLMProviderBase
+from core.utils.util import check_model_key
 
 TAG = __name__
 logger = setup_logging()
@@ -13,6 +14,7 @@ class LLMProvider(LLMProviderBase):
         self.base_url = config.get("base_url")
         self.detail = config.get("detail", False)
         self.variables = config.get("variables", {})
+        check_model_key("FastGPTLLM", self.api_key)
 
     def response(self, session_id, dialogue):
         try:

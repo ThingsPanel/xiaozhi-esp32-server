@@ -15,15 +15,10 @@
             <div class="content-panel">
                 <div class="content-area">
                     <el-card class="params-card" shadow="never">
-                            <el-table
-                              ref="paramsTable"
-                              :data="paramsList"
-                              class="transparent-table"
-                              v-loading="loading"
-                              element-loading-text="拼命加载中"
-                              element-loading-spinner="el-icon-loading"
-                              element-loading-background="rgba(255, 255, 255, 0.7)"
-                              :header-cell-class-name="headerCellClassName">
+                        <el-table ref="paramsTable" :data="paramsList" class="transparent-table" v-loading="loading"
+                            element-loading-text="拼命加载中" element-loading-spinner="el-icon-loading"
+                            element-loading-background="rgba(255, 255, 255, 0.7)"
+                            :header-cell-class-name="headerCellClassName">
                             <el-table-column label="选择" align="center" width="120">
                                 <template slot-scope="scope">
                                     <el-checkbox v-model="scope.row.selected"></el-checkbox>
@@ -48,14 +43,11 @@
                                 </el-button>
                                 <el-button size="mini" type="success" @click="showAddDialog">新增</el-button>
                                 <el-button size="mini" type="danger" icon="el-icon-delete"
-                                     @click="deleteSelectedParams">删除</el-button>
+                                    @click="deleteSelectedParams">删除</el-button>
                             </div>
                             <div class="custom-pagination">
                                 <el-select v-model="pageSize" @change="handlePageSizeChange" class="page-size-select">
-                                    <el-option
-                                        v-for="item in pageSizeOptions"
-                                        :key="item"
-                                        :label="`${item}条/页`"
+                                    <el-option v-for="item in pageSizeOptions" :key="item" :label="`${item}条/页`"
                                         :value="item">
                                     </el-option>
                                 </el-select>
@@ -83,7 +75,9 @@
         <!-- 新增/编辑参数对话框 -->
         <param-dialog :title="dialogTitle" :visible.sync="dialogVisible" :form="paramForm" @submit="handleSubmit"
             @cancel="dialogVisible = false" />
-
+        <el-footer>
+            <version-footer />
+        </el-footer>
     </div>
 </template>
 
@@ -91,9 +85,9 @@
 import Api from "@/apis/api";
 import HeaderBar from "@/components/HeaderBar.vue";
 import ParamDialog from "@/components/ParamDialog.vue";
-
+import VersionFooter from "@/components/VersionFooter.vue";
 export default {
-    components: { HeaderBar, ParamDialog },
+    components: { HeaderBar, ParamDialog, VersionFooter },
     data() {
         return {
             searchCode: "",
@@ -146,29 +140,29 @@ export default {
             this.fetchParams();
         },
         fetchParams() {
-          this.loading = true;
-          Api.admin.getParamsList(
-            {
-              page: this.currentPage,
-              limit: this.pageSize,
-              paramCode: this.searchCode,
-            },
-            ({ data }) => {
-              this.loading = false;
-              if (data.code === 0) {
-                this.paramsList = data.data.list.map(item => ({
-                  ...item,
-                  selected: false
-                }));
-                this.total = data.data.total;
-              } else {
-                this.$message.error({
-                  message: data.msg || '获取参数列表失败',
-                  showClose: true
-                });
-              }
-            }
-          );
+            this.loading = true;
+            Api.admin.getParamsList(
+                {
+                    page: this.currentPage,
+                    limit: this.pageSize,
+                    paramCode: this.searchCode,
+                },
+                ({ data }) => {
+                    this.loading = false;
+                    if (data.code === 0) {
+                        this.paramsList = data.data.list.map(item => ({
+                            ...item,
+                            selected: false
+                        }));
+                        this.total = data.data.total;
+                    } else {
+                        this.$message.error({
+                            message: data.msg || '获取参数列表失败',
+                            showClose: true
+                        });
+                    }
+                }
+            );
         },
         handleSearch() {
             this.currentPage = 1;
@@ -197,33 +191,33 @@ export default {
         },
 
         handleSubmit({ form, done }) {
-          if (form.id) {
-            // 编辑
-            Api.admin.updateParam(form, ({ data }) => {
-              if (data.code === 0) {
-                this.$message.success({
-                  message:"修改成功",
-                  showClose:true
+            if (form.id) {
+                // 编辑
+                Api.admin.updateParam(form, ({ data }) => {
+                    if (data.code === 0) {
+                        this.$message.success({
+                            message: "修改成功",
+                            showClose: true
+                        });
+                        this.dialogVisible = false;
+                        this.fetchParams();
+                    }
+                    done && done();
                 });
-                this.dialogVisible = false;
-                this.fetchParams();
-              }
-              done && done();
-            });
-          } else {
-            // 新增
-            Api.admin.addParam(form, ({ data }) => {
-              if (data.code === 0) {
-                this.$message.success({
-                  message:"新增成功",
-                  showClose:true
+            } else {
+                // 新增
+                Api.admin.addParam(form, ({ data }) => {
+                    if (data.code === 0) {
+                        this.$message.success({
+                            message: "新增成功",
+                            showClose: true
+                        });
+                        this.dialogVisible = false;
+                        this.fetchParams();
+                    }
+                    done && done();
                 });
-                this.dialogVisible = false;
-                this.fetchParams();
-              }
-              done && done();
-            });
-          }
+            }
         },
 
         deleteSelectedParams() {
@@ -243,8 +237,8 @@ export default {
 
             if (Array.isArray(row) && row.length === 0) {
                 this.$message.warning({
-                  message:"请先选择需要删除的参数",
-                  showClose:true
+                    message: "请先选择需要删除的参数",
+                    showClose: true
                 });
                 return;
             }
@@ -259,8 +253,8 @@ export default {
                 const ids = params.map(param => param.id);
                 if (ids.some(id => isNaN(id))) {
                     this.$message.error({
-                      message:'存在无效的参数ID',
-                      showClose: true
+                        message: '存在无效的参数ID',
+                        showClose: true
                     });
                     return;
                 }
@@ -341,16 +335,16 @@ export default {
 }
 
 .main-wrapper {
-  margin: 5px 22px;
-  border-radius: 15px;
-  min-height: calc(100vh - 24vh);
-  height: auto;
-  max-height: 80vh;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  position: relative;
-  background: rgba(237, 242, 255, 0.5);
-  display: flex;
-  flex-direction: column;
+    margin: 5px 22px;
+    border-radius: 15px;
+    min-height: calc(100vh - 24vh);
+    height: auto;
+    max-height: 80vh;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    position: relative;
+    background: rgba(237, 242, 255, 0.5);
+    display: flex;
+    flex-direction: column;
 }
 
 .operation-bar {
@@ -402,21 +396,21 @@ export default {
 }
 
 .params-card {
-  background: white;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border: none;
-  box-shadow: none;
-  overflow: hidden;
-
-  ::v-deep .el-card__body {
-    padding: 15px;
+    background: white;
+    flex: 1;
     display: flex;
     flex-direction: column;
-    flex: 1;
+    border: none;
+    box-shadow: none;
     overflow: hidden;
-  }
+
+    ::v-deep .el-card__body {
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+    }
 }
 
 .table_bottom {
@@ -467,7 +461,7 @@ export default {
     gap: 10px;
 
     .el-select {
-      margin-right: 8px;
+        margin-right: 8px;
     }
 
     .pagination-btn:first-child,
@@ -535,15 +529,17 @@ export default {
     width: 100%;
     display: flex;
     flex-direction: column;
+
     .el-table__body-wrapper {
-      flex: 1;
-      overflow-y: auto;
-      max-height: none !important;
+        flex: 1;
+        overflow-y: auto;
+        max-height: none !important;
     }
 
     .el-table__header-wrapper {
-      flex-shrink: 0;
+        flex-shrink: 0;
     }
+
     .el-table__header th {
         background: white !important;
         color: black;
@@ -670,32 +666,31 @@ export default {
 }
 
 .el-table {
-  --table-max-height: calc(100vh - 40vh);
-  max-height: var(--table-max-height);
+    --table-max-height: calc(100vh - 40vh);
+    max-height: var(--table-max-height);
 
-  .el-table__body-wrapper {
-    max-height: calc(var(--table-max-height) - 40px);
-  }
+    .el-table__body-wrapper {
+        max-height: calc(var(--table-max-height) - 40px);
+    }
 }
 
 :deep(.el-loading-mask) {
-  background-color: rgba(255, 255, 255, 0.6) !important;
-  backdrop-filter: blur(2px);
+    background-color: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(2px);
 }
 
 :deep(.el-loading-spinner .circular) {
-  width: 28px;
-  height: 28px;
+    width: 28px;
+    height: 28px;
 }
 
 :deep(.el-loading-spinner .path) {
-  stroke: #6b8cff;
+    stroke: #6b8cff;
 }
 
 :deep(.el-loading-text) {
-  color: #6b8cff !important;
-  font-size: 14px;
-  margin-top: 8px;
+    color: #6b8cff !important;
+    font-size: 14px;
+    margin-top: 8px;
 }
-
 </style>

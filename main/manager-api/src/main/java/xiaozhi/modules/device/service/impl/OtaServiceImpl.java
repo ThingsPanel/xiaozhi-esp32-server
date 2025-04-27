@@ -1,6 +1,8 @@
 package xiaozhi.modules.device.service.impl;
 
 import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
@@ -38,17 +40,17 @@ public class OtaServiceImpl extends BaseServiceImpl<OtaDao, OtaEntity> implement
 
     @Override
     public void update(OtaEntity entity) {
-        // 检查是否存在相同名称、类型和版本的固件（排除当前记录）
+        // 检查是否存在相同类型和版本的固件（排除当前记录）
         QueryWrapper<OtaEntity> queryWrapper = new QueryWrapper<OtaEntity>()
-                .eq("firmware_name", entity.getFirmwareName())
                 .eq("type", entity.getType())
                 .eq("version", entity.getVersion())
                 .ne("id", entity.getId()); // 排除当前记录
 
         if (baseDao.selectCount(queryWrapper) > 0) {
-            throw new RuntimeException("已存在相同名称、类型和版本的固件，请修改后重试");
+            throw new RuntimeException("已存在相同类型和版本的固件，请修改后重试");
         }
 
+        entity.setUpdateDate(new Date());
         baseDao.updateById(entity);
     }
 
@@ -59,16 +61,25 @@ public class OtaServiceImpl extends BaseServiceImpl<OtaDao, OtaEntity> implement
 
     @Override
     public boolean save(OtaEntity entity) {
-        // 检查是否存在相同名称、类型和版本的固件
         QueryWrapper<OtaEntity> queryWrapper = new QueryWrapper<OtaEntity>()
-                .eq("firmware_name", entity.getFirmwareName())
-                .eq("type", entity.getType())
-                .eq("version", entity.getVersion());
-
-        if (baseDao.selectCount(queryWrapper) > 0) {
-            throw new RuntimeException("已存在相同名称、类型和版本的固件，请勿重复添加");
+                .eq("type", entity.getType());
+        // 同类固件只保留最新的一条
+        List<OtaEntity> otaList = baseDao.selectList(queryWrapper);
+        if (otaList != null && otaList.size() > 0) {
+            OtaEntity otaBefore = otaList.getFirst();
+            entity.setId(otaBefore.getId());
+            baseDao.updateById(entity);
+            return true;
         }
-
         return baseDao.insert(entity) > 0;
+    }
+
+    @Override
+    public OtaEntity getLatestOta(String type) {
+        QueryWrapper<OtaEntity> wrapper = new QueryWrapper<>();
+        wrapper.eq("type", type)
+                .orderByDesc("update_date")
+                .last("LIMIT 1");
+        return baseDao.selectOne(wrapper);
     }
 }
