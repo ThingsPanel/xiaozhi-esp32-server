@@ -2,8 +2,9 @@ import os
 import sys
 from loguru import logger
 from config.config_loader import load_config
+from config.settings import check_config_file
 
-SERVER_VERSION = "0.3.11"
+SERVER_VERSION = "0.3.14"
 
 
 def get_module_abbreviation(module_name, module_dict):
@@ -32,6 +33,7 @@ def formatter(record):
 
 
 def setup_logging():
+    check_config_file()
     """从配置文件中读取日志配置，并设置日志输出格式和级别"""
     config = load_config()
     log_config = config["log"]

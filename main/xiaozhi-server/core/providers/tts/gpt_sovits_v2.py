@@ -20,12 +20,29 @@ class TTSProvider(TTSProviderBase):
         self.ref_audio_path = config.get("ref_audio_path")
         self.prompt_text = config.get("prompt_text")
         self.prompt_lang = config.get("prompt_lang", "zh")
-        self.top_k = int(config.get("top_k", 5))
-        self.top_p = float(config.get("top_p", 1))
-        self.temperature = float(config.get("temperature", 1))
+
+        # 处理空字符串的情况
+        top_k = config.get("top_k", "5")
+        top_p = config.get("top_p", "1")
+        temperature = config.get("temperature", "1")
+        batch_threshold = config.get("batch_threshold", "0.75")
+        batch_size = config.get("batch_size", "1")
+        speed_factor = config.get("speed_factor", "1.0")
+        seed = config.get("seed", "-1")
+        repetition_penalty = config.get("repetition_penalty", "1.35")
+
+        self.top_k = int(top_k) if top_k else 5
+        self.top_p = float(top_p) if top_p else 1
+        self.temperature = float(temperature) if temperature else 1
+        self.batch_threshold = float(batch_threshold) if batch_threshold else 0.75
+        self.batch_size = int(batch_size) if batch_size else 1
+        self.speed_factor = float(speed_factor) if speed_factor else 1.0
+        self.seed = int(seed) if seed else -1
+        self.repetition_penalty = (
+            float(repetition_penalty) if repetition_penalty else 1.35
+        )
+
         self.text_split_method = config.get("text_split_method", "cut0")
-        self.batch_size = int(config.get("batch_size", 1))
-        self.batch_threshold = float(config.get("batch_threshold", 0.75))
 
         self.split_bucket = str(config.get("split_bucket", True)).lower() in (
             "true",
@@ -37,19 +54,19 @@ class TTSProvider(TTSProviderBase):
             "1",
             "yes",
         )
-        self.speed_factor = float(config.get("speed_factor", 1.0))
+
         self.streaming_mode = str(config.get("streaming_mode", False)).lower() in (
             "true",
             "1",
             "yes",
         )
-        self.seed = int(config.get("seed", -1))
+
         self.parallel_infer = str(config.get("parallel_infer", True)).lower() in (
             "true",
             "1",
             "yes",
         )
-        self.repetition_penalty = float(config.get("repetition_penalty", 1.35))
+
         self.aux_ref_audio_paths = parse_string_to_list(
             config.get("aux_ref_audio_paths")
         )

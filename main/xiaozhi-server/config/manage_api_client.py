@@ -1,5 +1,6 @@
 import os
 import time
+import base64
 from typing import Optional, Dict
 
 import httpx
@@ -53,6 +54,7 @@ class ManageApiClient:
             headers={
                 "User-Agent": f"PythonClient/2.0 (PID:{os.getpid()})",
                 "Accept": "application/json",
+                "Authorization": "Bearer " + cls._secret,
             },
             timeout=cls.config.get("timeout", 30),  # 默认超时时间30秒
         )
@@ -164,9 +166,7 @@ class ManageApiClient:
 
 def get_server_config() -> Optional[Dict]:
     """获取服务器基础配置"""
-    return ManageApiClient._instance._execute_request(
-        "POST", "/config/server-base", json={"secret": ManageApiClient._secret}
-    )
+    return ManageApiClient._instance._execute_request("POST", "/config/server-base")
 
 
 def get_agent_models(
@@ -177,12 +177,36 @@ def get_agent_models(
         "POST",
         "/config/agent-models",
         json={
-            "secret": ManageApiClient._secret,
             "macAddress": mac_address,
             "clientId": client_id,
             "selectedModule": selected_module,
         },
     )
+
+
+def report(
+    mac_address: str, session_id: str, chat_type: int, content: str, audio
+) -> Optional[Dict]:
+    """带熔断的业务方法示例"""
+    if not content or not ManageApiClient._instance:
+        return None
+    try:
+        return ManageApiClient._instance._execute_request(
+            "POST",
+            f"/agent/chat-history/report",
+            json={
+                "macAddress": mac_address,
+                "sessionId": session_id,
+                "chatType": chat_type,
+                "content": content,
+                "audioBase64": (
+                    base64.b64encode(audio).decode("utf-8") if audio else None
+                ),
+            },
+        )
+    except Exception as e:
+        print(f"TTS上报失败: {e}")
+        return None
 
 
 def init_service(config):

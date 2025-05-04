@@ -26,50 +26,40 @@ class ASRProvider(ASRProviderBase):
         self.secret_id = config.get("secret_id")
         self.secret_key = config.get("secret_key")
         self.output_dir = config.get("output_dir")
-        
+        self.delete_audio_file = delete_audio_file
+
         # 确保输出目录存在
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def save_audio_to_file(self, opus_data: List[bytes], session_id: str) -> str:
-        """将Opus音频数据解码并保存为WAV文件"""
-
-        file_name = f"tencent_asr_{session_id}_{uuid.uuid4()}.wav"
+    def save_audio_to_file(self, pcm_data: List[bytes], session_id: str) -> str:
+        """PCM数据保存为WAV文件"""
+        module_name = __name__.split(".")[-1]
+        file_name = f"asr_{module_name}_{session_id}_{uuid.uuid4()}.wav"
         file_path = os.path.join(self.output_dir, file_name)
-        
-        decoder = opuslib_next.Decoder(16000, 1)  # 16kHz, 单声道
-        pcm_data = []
-        
-        for opus_packet in opus_data:
-            try:
-                pcm_frame = decoder.decode(opus_packet, 960)  # 960 samples = 60ms
-                pcm_data.append(pcm_frame)
-            except opuslib_next.OpusError as e:
-                logger.bind(tag=TAG).error(f"Opus解码错误: {e}", exc_info=True)
-        
+
         with wave.open(file_path, "wb") as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)  # 2 bytes = 16-bit
             wf.setframerate(16000)
             wf.writeframes(b"".join(pcm_data))
-        
+
         return file_path
 
     @staticmethod
     def decode_opus(opus_data: List[bytes]) -> bytes:
         """将Opus音频数据解码为PCM数据"""
-        import opuslib_next
-        
+
         decoder = opuslib_next.Decoder(16000, 1)  # 16kHz, 单声道
         pcm_data = []
-        
+
         for opus_packet in opus_data:
             try:
                 pcm_frame = decoder.decode(opus_packet, 960)  # 960 samples = 60ms
                 pcm_data.append(pcm_frame)
             except opuslib_next.OpusError as e:
                 logger.bind(tag=TAG).error(f"Opus解码错误: {e}", exc_info=True)
-        
-        return b"".join(pcm_data)
+
+        return pcm_data
 
     async def speech_to_text(self, opus_data: List[bytes], session_id: str) -> Tuple[Optional[str], Optional[str]]:
         """将语音数据转换为文本"""
@@ -77,17 +67,25 @@ class ASRProvider(ASRProviderBase):
             logger.bind(tag=TAG).warn("音频数据为空！")
             return None, None
 
+        file_path = None
         try:
             # 检查配置是否已设置
             if not self.secret_id or not self.secret_key:
                 logger.bind(tag=TAG).error("腾讯云语音识别配置未设置，无法进行识别")
-                return None, None
+                return None, file_path
 
             # 将Opus音频数据解码为PCM
             pcm_data = self.decode_opus(opus_data)
-            
+            combined_pcm_data = b"".join(pcm_data)
+
+            # 判断是否保存为WAV文件
+            if self.delete_audio_file:
+                pass
+            else:
+                self.save_audio_to_file(pcm_data, session_id)
+
             # 将音频数据转换为Base64编码
-            base64_audio = base64.b64encode(pcm_data).decode('utf-8')
+            base64_audio = base64.b64encode(combined_pcm_data).decode('utf-8')
 
             # 构建请求体
             request_body = self._build_request_body(base64_audio)
@@ -98,15 +96,15 @@ class ASRProvider(ASRProviderBase):
             # 发送请求
             start_time = time.time()
             result = self._send_request(request_body, timestamp, authorization)
-            
+
             if result:
                 logger.bind(tag=TAG).debug(f"腾讯云语音识别耗时: {time.time() - start_time:.3f}s | 结果: {result}")
-            
-            return result, None
+
+            return result, file_path
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"处理音频时发生错误！{e}", exc_info=True)
-            return None, None
+            return None, file_path
 
     def _build_request_body(self, base64_audio: str) -> str:
         """构建请求体"""
@@ -210,26 +208,26 @@ class ASRProvider(ASRProviderBase):
 
         try:
             response = requests.post(self.API_URL, headers=headers, data=request_body)
-            
+
             if not response.ok:
                 raise IOError(f"请求失败: {response.status_code} {response.reason}")
-            
+
             response_json = response.json()
-            
+
             # 检查是否有错误
             if "Response" in response_json and "Error" in response_json["Response"]:
                 error = response_json["Response"]["Error"]
                 error_code = error["Code"]
                 error_message = error["Message"]
                 raise IOError(f"API返回错误: {error_code}: {error_message}")
-            
+
             # 提取识别结果
             if "Response" in response_json and "Result" in response_json["Response"]:
                 return response_json["Response"]["Result"]
             else:
                 logger.bind(tag=TAG).warn(f"响应中没有识别结果: {response_json}")
                 return ""
-                
+
         except Exception as e:
             logger.bind(tag=TAG).error(f"发送请求失败: {e}", exc_info=True)
             return None
@@ -243,7 +241,7 @@ class ASRProvider(ASRProviderBase):
         """计算HMAC-SHA256"""
         if isinstance(key, str):
             key = key.encode('utf-8')
-        
+
         return hmac.new(key, data.encode('utf-8'), hashlib.sha256).digest()
 
     def _bytes_to_hex(self, bytes_data: bytes) -> str:

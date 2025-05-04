@@ -28,11 +28,14 @@ import xiaozhi.common.page.PageData;
 import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.Result;
+import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
+import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
 import xiaozhi.modules.agent.dto.AgentCreateDTO;
 import xiaozhi.modules.agent.dto.AgentDTO;
 import xiaozhi.modules.agent.dto.AgentUpdateDTO;
 import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.entity.AgentTemplateEntity;
+import xiaozhi.modules.agent.service.AgentChatHistoryService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.AgentTemplateService;
 import xiaozhi.modules.device.service.DeviceService;
@@ -46,6 +49,7 @@ public class AgentController {
     private final AgentService agentService;
     private final AgentTemplateService agentTemplateService;
     private final DeviceService deviceService;
+    private final AgentChatHistoryService agentChatHistoryService;
 
     @GetMapping("/list")
     @Operation(summary = "获取用户智能体列表")
@@ -192,4 +196,37 @@ public class AgentController {
         return new Result<List<AgentTemplateEntity>>().ok(list);
     }
 
+    @GetMapping("/{id}/sessions")
+    @Operation(summary = "获取智能体会话列表")
+    @RequiresPermissions("sys:role:normal")
+    @Parameters({
+            @Parameter(name = Constant.PAGE, description = "当前页码，从1开始", required = true),
+            @Parameter(name = Constant.LIMIT, description = "每页显示记录数", required = true),
+    })
+    public Result<PageData<AgentChatSessionDTO>> getAgentSessions(
+            @PathVariable("id") String id,
+            @Parameter(hidden = true) @RequestParam Map<String, Object> params) {
+        params.put("agentId", id);
+        PageData<AgentChatSessionDTO> page = agentChatHistoryService.getSessionListByAgentId(params);
+        return new Result<PageData<AgentChatSessionDTO>>().ok(page);
+    }
+
+    @GetMapping("/{id}/chat-history/{sessionId}")
+    @Operation(summary = "获取智能体聊天记录")
+    @RequiresPermissions("sys:role:normal")
+    public Result<List<AgentChatHistoryDTO>> getAgentChatHistory(
+            @PathVariable("id") String id,
+            @PathVariable("sessionId") String sessionId) {
+        // 获取当前用户
+        UserDetail user = SecurityUser.getUser();
+
+        // 检查权限
+        if (!agentService.checkAgentPermission(id, user.getId())) {
+            return new Result<List<AgentChatHistoryDTO>>().error("没有权限查看该智能体的聊天记录");
+        }
+
+        // 查询聊天记录
+        List<AgentChatHistoryDTO> result = agentChatHistoryService.getChatHistoryBySessionId(id, sessionId);
+        return new Result<List<AgentChatHistoryDTO>>().ok(result);
+    }
 }

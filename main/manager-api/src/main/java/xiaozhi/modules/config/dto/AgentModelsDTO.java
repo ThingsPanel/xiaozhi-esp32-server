@@ -10,9 +10,6 @@ import lombok.Data;
 @Data
 @Schema(description = "获取智能体模型配置DTO")
 public class AgentModelsDTO {
-    @NotBlank(message = "密钥不能为空")
-    @Schema(description = "密钥")
-    private String secret;
 
     @NotBlank(message = "设备MAC地址不能为空")
     @Schema(description = "设备MAC地址")

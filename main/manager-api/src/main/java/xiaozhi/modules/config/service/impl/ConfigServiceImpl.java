@@ -62,7 +62,7 @@ public class ConfigServiceImpl implements ConfigService {
         // 构建模块配置
         buildModuleConfig(
                 agent.getAgentName(),
-                agent.getSystemPrompt(),
+                null,
                 null,
                 agent.getVadModelId(),
                 agent.getAsrModelId(),
@@ -153,7 +153,6 @@ public class ConfigServiceImpl implements ConfigService {
      * @param paramsList 系统参数列表
      * @return 配置信息
      */
-    @SuppressWarnings("unchecked")
     private Object buildConfig(Map<String, Object> config) {
 
         // 查询所有系统参数

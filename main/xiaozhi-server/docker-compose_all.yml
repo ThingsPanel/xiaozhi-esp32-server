@@ -49,7 +49,7 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
     volumes:
       # 配置文件目录
-      - ./uploadfile:/app/uploadfile
+      - ./uploadfile:/uploadfile
 
   xiaozhi-esp32-server-db:
     image: mysql:latest

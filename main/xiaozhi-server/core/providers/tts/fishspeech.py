@@ -89,18 +89,35 @@ class TTSProvider(TTSProviderBase):
         self.reference_audio = parse_string_to_list(config.get("reference_audio"))
         self.reference_text = parse_string_to_list(config.get("reference_text"))
         self.format = config.get("format", "wav")
-        self.channels = int(config.get("channels", 1))
-        self.rate = int(config.get("rate", 44100))
+
         self.api_key = config.get("api_key", "YOUR_API_KEY")
         have_key = check_model_key("FishSpeech TTS", self.api_key)
         if not have_key:
             return
         self.normalize = config.get("normalize", True)
-        self.max_new_tokens = int(config.get("max_new_tokens", 1024))
-        self.chunk_length = int(config.get("chunk_length", 200))
-        self.top_p = float(config.get("top_p", 0.7))
-        self.repetition_penalty = float(config.get("repetition_penalty", 1.2))
-        self.temperature = float(config.get("temperature", 0.7))
+
+        # 处理空字符串的情况
+        channels = config.get("channels", "1")
+        rate = config.get("rate", "44100")
+        max_new_tokens = config.get("max_new_tokens", "1024")
+        chunk_length = config.get("chunk_length", "200")
+
+        self.channels = int(channels) if channels else 1
+        self.rate = int(rate) if rate else 44100
+        self.max_new_tokens = int(max_new_tokens) if max_new_tokens else 1024
+        self.chunk_length = int(chunk_length) if chunk_length else 200
+
+        # 处理空字符串的情况
+        top_p = config.get("top_p", "0.7")
+        temperature = config.get("temperature", "0.7")
+        repetition_penalty = config.get("repetition_penalty", "1.2")
+
+        self.top_p = float(top_p) if top_p else 0.7
+        self.temperature = float(temperature) if temperature else 0.7
+        self.repetition_penalty = (
+            float(repetition_penalty) if repetition_penalty else 1.2
+        )
+
         self.streaming = str(config.get("streaming", False)).lower() in (
             "true",
             "1",

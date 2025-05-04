@@ -26,6 +26,7 @@
               <el-table-column label="用户Id" prop="userid" align="center"></el-table-column>
               <el-table-column label="手机号码" prop="mobile" align="center"></el-table-column>
               <el-table-column label="设备数量" prop="deviceCount" align="center"></el-table-column>
+              <el-table-column label="注册时间" prop="createDate" align="center"></el-table-column>
               <el-table-column label="状态" prop="status" align="center">
                 <template slot-scope="scope">
                   <el-tag v-if="scope.row.status === 1" type="success">正常</el-tag>
@@ -336,7 +337,7 @@ export default {
       }).catch(() => {
         // 用户取消操作
       });
-    }
+    },
   },
 };
 </script>

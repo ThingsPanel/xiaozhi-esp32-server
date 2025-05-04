@@ -169,6 +169,7 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
             String deviceCount = deviceService.selectCountByUserId(user.getId()).toString();
             adminPageUserVO.setDeviceCount(deviceCount);
             adminPageUserVO.setStatus(user.getStatus());
+            adminPageUserVO.setCreateDate(user.getCreateDate());
             return adminPageUserVO;
         }).toList();
         return new PageData<>(list, page.getTotal());

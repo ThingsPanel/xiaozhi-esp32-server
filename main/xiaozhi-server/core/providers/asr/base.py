@@ -9,8 +9,8 @@ logger = setup_logging()
 
 class ASRProviderBase(ABC):
     @abstractmethod
-    def save_audio_to_file(self, opus_data: List[bytes], session_id: str) -> str:
-        """解码Opus数据并保存为WAV文件"""
+    def save_audio_to_file(self, pcm_data: List[bytes], session_id: str) -> str:
+        """PCM数据保存为WAV文件"""
         pass
 
     @abstractmethod

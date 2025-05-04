@@ -96,8 +96,8 @@
         </div>
 
         <!-- 新增/编辑固件对话框 -->
-        <firmware-dialog :title="dialogTitle" :visible.sync="dialogVisible" :form="firmwareForm" @submit="handleSubmit"
-            @cancel="dialogVisible = false" />
+        <firmware-dialog :title="dialogTitle" :visible.sync="dialogVisible" :form="firmwareForm"
+            :firmware-types="firmwareTypes" @submit="handleSubmit" @cancel="dialogVisible = false" />
         <el-footer>
             <version-footer />
         </el-footer>
@@ -109,7 +109,6 @@ import Api from "@/apis/api";
 import FirmwareDialog from "@/components/FirmwareDialog.vue";
 import HeaderBar from "@/components/HeaderBar.vue";
 import VersionFooter from "@/components/VersionFooter.vue";
-import { FIRMWARE_TYPES } from "@/utils";
 import { formatDate, formatFileSize } from "@/utils/format";
 
 export default {
@@ -136,10 +135,12 @@ export default {
                 remark: "",
                 firmwarePath: ""
             },
+            firmwareTypes: [],
         };
     },
     created() {
         this.fetchFirmwareList();
+        this.getFirmwareTypes();
     },
 
     computed: {
@@ -387,9 +388,18 @@ export default {
         },
         formatDate,
         formatFileSize,
+        async getFirmwareTypes() {
+            try {
+                const res = await Api.dict.getDictDataByType('FIRMWARE_TYPE')
+                this.firmwareTypes = res.data
+            } catch (error) {
+                console.error('获取固件类型失败:', error)
+                this.$message.error(error.message || '获取固件类型失败')
+            }
+        },
         getFirmwareTypeName(type) {
-            const firmwareType = FIRMWARE_TYPES.find(item => item.key === type);
-            return firmwareType ? firmwareType.name : type;
+            const firmwareType = this.firmwareTypes.find(item => item.key === type)
+            return firmwareType ? firmwareType.name : type
         },
     },
 };

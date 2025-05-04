@@ -58,7 +58,6 @@ public class AdminController {
         dto.setLimit((String) params.get(Constant.LIMIT));
         dto.setPage((String) params.get(Constant.PAGE));
         ValidatorUtils.validateEntity(dto);
-        ValidatorUtils.validateEntity(dto);
         PageData<AdminPageUserVO> page = sysUserService.page(dto);
         return new Result<PageData<AdminPageUserVO>>().ok(page);
     }

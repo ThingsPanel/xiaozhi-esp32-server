@@ -1,9 +1,6 @@
 package xiaozhi.modules.security.config;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
+import jakarta.servlet.Filter;
 import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.session.mgt.SessionManager;
 import org.apache.shiro.spring.LifecycleBeanPostProcessor;
@@ -14,10 +11,14 @@ import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
 import org.apache.shiro.web.session.mgt.DefaultWebSessionManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import jakarta.servlet.Filter;
 import xiaozhi.modules.security.oauth2.Oauth2Filter;
 import xiaozhi.modules.security.oauth2.Oauth2Realm;
+import xiaozhi.modules.security.secret.ServerSecretFilter;
+import xiaozhi.modules.sys.service.SysParamsService;
+
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Shiro的配置文件
@@ -46,7 +47,7 @@ public class ShiroConfig {
     }
 
     @Bean("shiroFilter")
-    public ShiroFilterFactoryBean shirFilter(SecurityManager securityManager) {
+    public ShiroFilterFactoryBean shirFilter(SecurityManager securityManager, SysParamsService sysParamsService) {
         ShiroFilterConfiguration config = new ShiroFilterConfiguration();
         config.setFilterOncePerRequest(true);
 
@@ -54,9 +55,11 @@ public class ShiroConfig {
         shiroFilter.setSecurityManager(securityManager);
         shiroFilter.setShiroFilterConfiguration(config);
 
-        // oauth过滤
         Map<String, Filter> filters = new HashMap<>();
+        // oauth过滤
         filters.put("oauth2", new Oauth2Filter());
+        // 服务密钥过滤
+        filters.put("server", new ServerSecretFilter(sysParamsService));
         shiroFilter.setFilters(filters);
 
         // 添加Shiro的内置过滤器
@@ -79,8 +82,9 @@ public class ShiroConfig {
         filterMap.put("/user/login", "anon");
         filterMap.put("/user/pub-config", "anon");
         filterMap.put("/user/register", "anon");
-        filterMap.put("/config/server-base", "anon");
-        filterMap.put("/config/agent-models", "anon");
+        // 将config路径使用server服务过滤器
+        filterMap.put("/config/**", "server");
+        filterMap.put("/agent/chat-history/report", "server");
         filterMap.put("/device/status", "anon");
         filterMap.put("/device/bind", "anon");
         filterMap.put("/**", "oauth2");

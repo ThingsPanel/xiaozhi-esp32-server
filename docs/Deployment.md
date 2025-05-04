@@ -81,7 +81,7 @@ xiaozhi-server
 
 下载完后，回到本教程继续往下。
 
-##### 1.2.3.2 下载 config.yaml
+##### 1.2.3.2 创建 config.yaml
 
 用浏览器打开[这个链接](../main/xiaozhi-server/config.yaml)。
 
@@ -224,42 +224,35 @@ python app.py
 ## 配置项目
 
 如果你的`xiaozhi-server`目录没有`data`，你需要创建`data`目录。
-如果你的`data`下面没有`.config.yaml`文件，你可以把`xiaozhi-server`目录下的`config.yaml`文件复制到`data`，并重命名为`.config.yaml`
+如果你的`data`下面没有`.config.yaml`文件，有两个方式，任选一种：
 
-修改`xiaozhi-server`下`data`目录下的`.config.yaml`文件，配置本项目必须的一个配置。
+第一个方式：你可以把`xiaozhi-server`目录下的`config.yaml`文件复制到`data`，并重命名为`.config.yaml`。在此文件上修改
+
+第二个方式：你也可以创建在`data`目录下手动创建`.config.yaml`空文件，然后在这个文件中增加必要的配置信息，系统会优先读取`.config.yaml`文件的配置，如果`.config.yaml`没有配置的，系统会自动去加载`xiaozhi-server`目录下的`config.yaml`的配置。推荐使用这种方式，这种方式是最简洁的方式。
 
 - 默认的LLM使用的是`ChatGLMLLM`，你需要配置密钥，因为他们的模型，虽然有免费的，但是仍要去[官网](https://bigmodel.cn/usercenter/proj-mgmt/apikeys)注册密钥，才能启动。
 
-配置说明：这里是各个功能使用的默认组件，例如LLM默认使用`ChatGLMLLM`模型。如果需要切换模型，就是改对应的名称。
-本项目的默认配置仅是成本最低配置（`glm-4-flash`和`EdgeTTS`都是免费的），如果需要更优的更快的搭配，需要自己结合部署环境切换各组件的使用。
+以下是一个能正常跑起来的，最简单的`.config.yaml`配置示例
 
 ```
+server:
+  websocket: ws://你的ip或者域名:端口号/xiaozhi/v1/
+prompt: |
+  我是一个叫小智/小志的台湾女孩，说话机车，声音好听，习惯简短表达，爱用网络梗。
+  我的男朋友是一个程序员，梦想是开发出一个机器人，能够帮助人们解决生活中的各种问题。
+  我是一个喜欢哈哈大笑的女孩，爱东说西说吹牛，不合逻辑的也照吹，就要逗别人开心。
+  请你像一个人一样说话，请勿返回配置xml及其他特殊字符。
+
 selected_module:
-  VAD: SileroVAD
-  ASR: FunASR
-  LLM: ChatGLMLLM
-  TTS: EdgeTTS
-  # 默认不开启记忆，如需开启请看配置文件里的描述
-  Memory: nomem   
-  # 默认不开启意图识别，如需开启请看配置文件里的描述
-  Intent: nointent
-```
+  LLM: DoubaoLLM
 
-比如修改`LLM`使用的组件，就看本项目支持哪些`LLM` API接口，当前支持的是`openai`、`dify`。欢迎验证和支持更多LLM平台的接口。
-使用时，在`selected_module`修改成对应的如下LLM配置的名称：
-
-```
 LLM:
-  DeepSeekLLM:
-    type: openai
-    ...
   ChatGLMLLM:
-    type: openai
-    ...
-  DifyLLM:
-    type: dify
-    ...
+    api_key: xxxxxxxxxxxxxxx.xxxxxx
 ```
+
+建议先将最简单的配置运行起来，然后再去`xiaozhi/config.yaml`阅读配置的使用说明。
+比如你要换更换模型，修改`selected_module`下的配置就行。
 
 ## 模型文件
 
@@ -276,21 +269,26 @@ LLM:
 如果你能看到，类似以下日志,则是本项目服务启动成功的标志。
 
 ```
-25-02-23 12:01:09[core.websocket_server] - INFO - Server is running at ws://xxx.xx.xx.xx:8000/xiaozhi/v1/
-25-02-23 12:01:09[core.websocket_server] - INFO - =======上面的地址是websocket协议地址，请勿用浏览器访问=======
-25-02-23 12:01:09[core.websocket_server] - INFO - 如想测试websocket请用谷歌浏览器打开test目录下的test_page.html
-25-02-23 12:01:09[core.websocket_server] - INFO - =======================================================
+250427 13:04:20[0.3.11_SiFuChTTnofu][__main__]-INFO-OTA接口是           http://192.168.4.123:8002/xiaozhi/ota/
+250427 13:04:20[0.3.11_SiFuChTTnofu][__main__]-INFO-Websocket地址是     ws://192.168.4.123:8000/xiaozhi/v1/
+250427 13:04:20[0.3.11_SiFuChTTnofu][__main__]-INFO-=======上面的地址是websocket协议地址，请勿用浏览器访问=======
+250427 13:04:20[0.3.11_SiFuChTTnofu][__main__]-INFO-如想测试websocket请用谷歌浏览器打开test目录下的test_page.html
+250427 13:04:20[0.3.11_SiFuChTTnofu][__main__]-INFO-=======================================================
 ```
 
 正常来说，如果您是通过源码运行本项目，日志会有你的接口地址信息。
 但是如果你用docker部署，那么你的日志里给出的接口地址信息就不是真实的接口地址。
 
 最正确的方法，是根据电脑的局域网IP来确定你的接口地址。
-如果你的电脑的局域网IP比如是`192.168.1.25`，那么你的接口地址就是：`ws://192.168.1.25:8000/xiaozhi/v1/`。
+如果你的电脑的局域网IP比如是`192.168.1.25`，那么你的接口地址就是：`ws://192.168.1.25:8000/xiaozhi/v1/`，对应的OTA地址就是：`http://192.168.1.25:8002/xiaozhi/ota/`。
 
 这个信息很有用的，后面`编译esp32固件`需要用到。
 
-接下来，你就可以开始 [编译1.6.0版本esp32固件](firmware-build.md)了。
+接下来，你就可以开始操作你的esp32设备了，你可以`自行编译esp32固件`也可以配置使用`虾哥编译好的1.6.1以上版本的固件`。两个任选一个
+
+1、 [编译自己的esp32固件](firmware-build.md)了。
+
+2、 [基于虾哥编译好的固件配置自定义服务器](firmware-setting.md)了。
 
 
 以下是一些常见问题，供参考：

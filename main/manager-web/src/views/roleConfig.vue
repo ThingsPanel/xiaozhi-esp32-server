@@ -1,6 +1,6 @@
 <template>
   <div class="welcome">
-    <HeaderBar/>
+    <HeaderBar />
 
     <div class="operation-bar">
       <h2 class="page-title">角色配置</h2>
@@ -26,93 +26,49 @@
                 <div class="form-grid">
                   <div class="form-column">
                     <el-form-item label="助手昵称：">
-                      <el-input v-model="form.agentName" class="form-input"/>
+                      <el-input v-model="form.agentName" class="form-input" />
                     </el-form-item>
                     <el-form-item label="角色模版：">
                       <div class="template-container">
-                        <div
-                            v-for="(template, index) in templates"
-                            :key="`template-${index}`"
-                            class="template-item"
-                            :class="{ 'template-loading': loadingTemplate }"
-                            @click="selectTemplate(template)"
-                        >
+                        <div v-for="(template, index) in templates" :key="`template-${index}`" class="template-item"
+                          :class="{ 'template-loading': loadingTemplate }" @click="selectTemplate(template)">
                           {{ template.agentName }}
                         </div>
                       </div>
                     </el-form-item>
                     <el-form-item label="角色介绍：">
-                      <el-input
-                          type="textarea"
-                          rows="5"
-                          resize="none"
-                          placeholder="请输入内容"
-                          v-model="form.systemPrompt"
-                          maxlength="2000"
-                          show-word-limit
-                          class="form-textarea"
-                      />
+                      <el-input type="textarea" rows="12" resize="none" placeholder="请输入内容" v-model="form.systemPrompt"
+                        maxlength="2000" show-word-limit class="form-textarea" />
                     </el-form-item>
-                    <el-form-item label="语言编码：">
-                      <el-input
-                          v-model="form.langCode"
-                          placeholder="请输入语言编码，如：zh_CN"
-                          maxlength="10"
-                          show-word-limit
-                          class="form-input"
-                      />
+                    <el-form-item label="语言编码：" style="display: none;">
+                      <el-input v-model="form.langCode" placeholder="请输入语言编码，如：zh_CN" maxlength="10" show-word-limit
+                        class="form-input" />
                     </el-form-item>
-                    <el-form-item label="交互语种：">
-                      <el-input
-                          v-model="form.language"
-                          placeholder="请输入交互语种，如：中文"
-                          maxlength="10"
-                          show-word-limit
-                          class="form-input"
-                      />
+                    <el-form-item label="交互语种：" style="display: none;">
+                      <el-input v-model="form.language" placeholder="请输入交互语种，如：中文" maxlength="10" show-word-limit
+                        class="form-input" />
                     </el-form-item>
                     <div class="action-bar">
-              <el-button type="primary" class="save-btn" @click="saveConfig">保存配置</el-button>
-              <el-button class="reset-btn" @click="resetConfig">重置</el-button>
-              <div class="hint-text">
-                <img loading="lazy" src="@/assets/home/red-info.png" alt="">
-                <span>保存配置后，需要重启设备，新的配置才会生效。</span>
-              </div>
-</div>
+                      <el-button type="primary" class="save-btn" @click="saveConfig">保存配置</el-button>
+                      <el-button class="reset-btn" @click="resetConfig">重置</el-button>
+                      <div class="hint-text">
+                        <img loading="lazy" src="@/assets/home/red-info.png" alt="">
+                        <span>保存配置后，需要重启设备，新的配置才会生效。</span>
+                      </div>
+                    </div>
                   </div>
                   <div class="form-column">
-                    <el-form-item
-                        v-for="(model, index) in models"
-                        :key="`model-${index}`"
-                        :label="model.label"
-                        class="model-item"
-                    >
-                      <el-select
-                          v-model="form.model[model.key]"
-                          filterable
-                          placeholder="请选择"
-                          class="form-select"
-                      >
-                        <el-option
-                            v-for="(item, optionIndex) in modelOptions[model.type]"
-                            :key="`option-${index}-${optionIndex}`"
-                            :label="item.label"
-                            :value="item.value"
-                        />
+                    <el-form-item v-for="(model, index) in models" :key="`model-${index}`" :label="model.label"
+                      class="model-item">
+                      <el-select v-model="form.model[model.key]" filterable placeholder="请选择" class="form-select">
+                        <el-option v-for="(item, optionIndex) in modelOptions[model.type]"
+                          :key="`option-${index}-${optionIndex}`" :label="item.label" :value="item.value" />
                       </el-select>
                     </el-form-item>
                     <el-form-item label="角色音色：">
-                      <el-select
-                          v-model="form.ttsVoiceId"
-                          placeholder="请选择"
-                          class="form-select"
-                      >
-                        <el-option
-                            v-for="(item, index) in voiceOptions"
-                            :key="`voice-${index}`"
-                            :label="item.label"
-                            :value="item.value"
-                        />
+                      <el-select v-model="form.ttsVoiceId" placeholder="请选择" class="form-select">
+                        <el-option v-for="(item, index) in voiceOptions" :key="`voice-${index}`" :label="item.label"
+                          :value="item.value" />
                       </el-select>
                     </el-form-item>
                   </div>
@@ -133,7 +89,7 @@ import HeaderBar from "@/components/HeaderBar.vue";
 
 export default {
   name: 'RoleConfigPage',
-  components: {HeaderBar},
+  components: { HeaderBar },
   data() {
     return {
       form: {
@@ -154,12 +110,12 @@ export default {
         }
       },
       models: [
-        {label: '语音活动检测(VAD)', key: 'vadModelId', type: 'VAD'},
-        {label: '语音识别(ASR)', key: 'asrModelId', type: 'ASR'},
-        {label: '大语言模型(LLM)', key: 'llmModelId', type: 'LLM'},
-        {label: '意图识别(Intent)', key: 'intentModelId', type: 'Intent'},
-        {label: '记忆(Memory)', key: 'memModelId', type: 'Memory'},
-        {label: '语音合成(TTS)', key: 'ttsModelId', type: 'TTS'},
+        { label: '语音活动检测(VAD)', key: 'vadModelId', type: 'VAD' },
+        { label: '语音识别(ASR)', key: 'asrModelId', type: 'ASR' },
+        { label: '大语言模型(LLM)', key: 'llmModelId', type: 'LLM' },
+        { label: '意图识别(Intent)', key: 'intentModelId', type: 'Intent' },
+        { label: '记忆(Memory)', key: 'memModelId', type: 'Memory' },
+        { label: '语音合成(TTS)', key: 'ttsModelId', type: 'TTS' },
       ],
       modelOptions: {},
       templates: [],
@@ -187,7 +143,7 @@ export default {
         language: this.form.language,
         sort: this.form.sort
       };
-      Api.agent.updateAgentConfig(this.$route.query.agentId, configData, ({data}) => {
+      Api.agent.updateAgentConfig(this.$route.query.agentId, configData, ({ data }) => {
         if (data.code === 0) {
           this.$message.success({
             message: '配置保存成功',
@@ -232,7 +188,7 @@ export default {
       });
     },
     fetchTemplates() {
-      Api.agent.getAgentTemplate(({data}) => {
+      Api.agent.getAgentTemplate(({ data }) => {
         if (data.code === 0) {
           this.templates = data.data;
         } else {
@@ -277,7 +233,7 @@ export default {
       };
     },
     fetchAgentConfig(agentId) {
-      Api.agent.getDeviceConfig(agentId, ({data}) => {
+      Api.agent.getDeviceConfig(agentId, ({ data }) => {
         if (data.code === 0) {
           this.form = {
             ...this.form,
@@ -298,7 +254,7 @@ export default {
     },
     fetchModelOptions() {
       this.models.forEach(model => {
-        Api.model.getModelNames(model.type, '', ({data}) => {
+        Api.model.getModelNames(model.type, '', ({ data }) => {
           if (data.code === 0) {
             this.$set(this.modelOptions, model.type, data.data.map(item => ({
               value: item.id,
@@ -315,7 +271,7 @@ export default {
         this.voiceOptions = [];
         return;
       }
-      Api.model.getModelVoices(modelId, '', ({data}) => {
+      Api.model.getModelVoices(modelId, '', ({ data }) => {
         if (data.code === 0 && data.data) {
           this.voiceOptions = data.data.map(voice => ({
             value: voice.id,
@@ -567,7 +523,6 @@ export default {
   background: none;
   position: absolute;
   font-size: 12px;
-  bottom: -10%;
   right: 3%;
 }
 
@@ -597,5 +552,4 @@ export default {
   color: #409EFF;
   border-color: #409EFF;
 }
-
 </style>

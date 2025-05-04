@@ -50,10 +50,22 @@ class ASRProvider(ASRProviderBase):
                 # device="cuda:0",  # 启用GPU加速
             )
 
-    def save_audio_to_file(self, opus_data: List[bytes], session_id: str) -> str:
-        """将Opus音频数据解码并保存为WAV文件"""
-        file_name = f"asr_{session_id}_{uuid.uuid4()}.wav"
+    def save_audio_to_file(self, pcm_data: List[bytes], session_id: str) -> str:
+        """PCM数据保存为WAV文件"""
+        module_name = __name__.split(".")[-1]
+        file_name = f"asr_{module_name}_{session_id}_{uuid.uuid4()}.wav"
         file_path = os.path.join(self.output_dir, file_name)
+
+        with wave.open(file_path, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)  # 2 bytes = 16-bit
+            wf.setframerate(16000)
+            wf.writeframes(b"".join(pcm_data))
+
+        return file_path
+
+    @staticmethod
+    def decode_opus(opus_data: List[bytes], session_id: str) -> List[bytes]:
 
         decoder = opuslib_next.Decoder(16000, 1)  # 16kHz, 单声道
         pcm_data = []
@@ -65,27 +77,26 @@ class ASRProvider(ASRProviderBase):
             except opuslib_next.OpusError as e:
                 logger.bind(tag=TAG).error(f"Opus解码错误: {e}", exc_info=True)
 
-        with wave.open(file_path, "wb") as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)  # 2 bytes = 16-bit
-            wf.setframerate(16000)
-            wf.writeframes(b"".join(pcm_data))
-
-        return file_path
+        return pcm_data
 
     async def speech_to_text(self, opus_data: List[bytes], session_id: str) -> Tuple[Optional[str], Optional[str]]:
         """语音转文本主处理逻辑"""
         file_path = None
         try:
-            # 保存音频文件
-            start_time = time.time()
-            file_path = self.save_audio_to_file(opus_data, session_id)
-            logger.bind(tag=TAG).debug(f"音频文件保存耗时: {time.time() - start_time:.3f}s | 路径: {file_path}")
+            # 合并所有opus数据包
+            pcm_data = self.decode_opus(opus_data, session_id)
+            combined_pcm_data = b"".join(pcm_data)
+
+            # 判断是否保存为WAV文件
+            if self.delete_audio_file:
+                pass
+            else:
+                file_path = self.save_audio_to_file(pcm_data, session_id)
 
             # 语音识别
             start_time = time.time()
             result = self.model.generate(
-                input=file_path,
+                input=combined_pcm_data,
                 cache={},
                 language="auto",
                 use_itn=True,
@@ -98,13 +109,13 @@ class ASRProvider(ASRProviderBase):
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"语音识别失败: {e}", exc_info=True)
-            return "", None
+            return "", file_path
 
-        finally:
-            # 文件清理逻辑
-            if self.delete_audio_file and file_path and os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                    logger.bind(tag=TAG).debug(f"已删除临时音频文件: {file_path}")
-                except Exception as e:
-                    logger.bind(tag=TAG).error(f"文件删除失败: {file_path} | 错误: {e}")
+        # finally:
+        #     # 文件清理逻辑
+        #     if self.delete_audio_file and file_path and os.path.exists(file_path):
+        #         try:
+        #             os.remove(file_path)
+        #             logger.bind(tag=TAG).debug(f"已删除临时音频文件: {file_path}")
+        #         except Exception as e:
+        #             logger.bind(tag=TAG).error(f"文件删除失败: {file_path} | 错误: {e}")

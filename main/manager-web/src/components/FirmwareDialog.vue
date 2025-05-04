@@ -38,7 +38,6 @@
 
 <script>
 import Api from '@/apis/api';
-import { FIRMWARE_TYPES } from '@/utils';
 
 export default {
   name: 'FirmwareDialog',
@@ -54,11 +53,14 @@ export default {
     form: {
       type: Object,
       default: () => ({})
+    },
+    firmwareTypes: {
+      type: Array,
+      default: () => []
     }
   },
   data() {
     return {
-      firmwareTypes: FIRMWARE_TYPES,
       uploadProgress: 0,
       uploadStatus: '',
       isUploading: false,
@@ -85,7 +87,11 @@ export default {
       return !!this.form.id
     }
   },
+  created() {
+    // 移除 getDictDataByType 调用
+  },
   methods: {
+    // 移除 getFirmwareTypes 方法
     handleClose() {
       this.$refs.form.clearValidate();
       this.$emit('cancel');
