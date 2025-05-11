@@ -42,8 +42,6 @@ import xiaozhi.modules.device.vo.UserShowDeviceListVO;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.sys.service.SysUserUtilService;
-import xiaozhi.modules.sys.dao.SysUserDao;
-import xiaozhi.modules.sys.entity.SysUserEntity;
 
 @Slf4j
 @Service
@@ -55,10 +53,9 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
     private final SysParamsService sysParamsService;
     private final RedisUtils redisUtils;
     private final OtaService otaService;
-    private final SysUserDao sysUserDao;
 
     @Override
-    public DeviceEntity deviceActivation(String agentId, String activationCode) {
+    public Boolean deviceActivation(String agentId, String activationCode) {
         if (StringUtils.isBlank(activationCode)) {
             throw new RenException("激活码不能为空");
         }
@@ -88,13 +85,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         String appVersion = (String) cacheMap.get("app_version");
         UserDetail user = SecurityUser.getUser();
         if (user.getId() == null) {
-            SysUserEntity userEntity = sysUserDao.selectOne(
-                new QueryWrapper<SysUserEntity>()
-                    .eq("username", "admin")
-            );
-            // 转换成UserDetail对象
-            user = ConvertUtils.sourceToTarget(userEntity, UserDetail.class);
-            //throw new RenException("用户未登录");
+            throw new RenException("用户未登录");
         }
 
         Date currentTime = new Date();
@@ -116,7 +107,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         // 清理redis缓存
         redisUtils.delete(cacheDeviceKey);
         redisUtils.delete(deviceKey);
-        return deviceEntity;
+        return true;
     }
 
     @Override
@@ -393,10 +384,5 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             }
         }
         return 0;
-    }
-
-    @Override
-    public void updateDeviceStatus(String deviceId, Integer status) {
-        // TODO
     }
 }
