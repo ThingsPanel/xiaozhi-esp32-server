@@ -8,10 +8,10 @@ from plugins_func.register import register_function, ToolType, ActionResponse, A
 TAG = __name__
 logger = setup_logging()
 
-GET_NEWS_FUNCTION_DESC = {
+GET_NEWS_FROM_CHINANEWS_FUNCTION_DESC = {
     "type": "function",
     "function": {
-        "name": "get_news",
+        "name": "get_news_from_chinanews",
         "description": (
             "获取最新新闻，随机选择一条新闻进行播报。"
             "用户可以指定新闻类型，如社会新闻、科技新闻、国际新闻等。"
@@ -23,20 +23,20 @@ GET_NEWS_FUNCTION_DESC = {
             "properties": {
                 "category": {
                     "type": "string",
-                    "description": "新闻类别，例如社会、科技、国际。可选参数，如果不提供则使用默认类别"
+                    "description": "新闻类别，例如社会、科技、国际。可选参数，如果不提供则使用默认类别",
                 },
                 "detail": {
                     "type": "boolean",
-                    "description": "是否获取详细内容，默认为false。如果为true，则获取上一条新闻的详细内容"
+                    "description": "是否获取详细内容，默认为false。如果为true，则获取上一条新闻的详细内容",
                 },
                 "lang": {
                     "type": "string",
-                    "description": "返回用户使用的语言code，例如zh_CN/zh_HK/en_US/ja_JP等，默认zh_CN"
-                }
+                    "description": "返回用户使用的语言code，例如zh_CN/zh_HK/en_US/ja_JP等，默认zh_CN",
+                },
             },
-            "required": ["lang"]
-        }
-    }
+            "required": ["lang"],
+        },
+    },
 }
 
 
@@ -51,18 +51,30 @@ def fetch_news_from_rss(rss_url):
 
         # 查找所有item元素（新闻条目）
         news_items = []
-        for item in root.findall('.//item'):
-            title = item.find('title').text if item.find('title') is not None else "无标题"
-            link = item.find('link').text if item.find('link') is not None else "#"
-            description = item.find('description').text if item.find('description') is not None else "无描述"
-            pubDate = item.find('pubDate').text if item.find('pubDate') is not None else "未知时间"
+        for item in root.findall(".//item"):
+            title = (
+                item.find("title").text if item.find("title") is not None else "无标题"
+            )
+            link = item.find("link").text if item.find("link") is not None else "#"
+            description = (
+                item.find("description").text
+                if item.find("description") is not None
+                else "无描述"
+            )
+            pubDate = (
+                item.find("pubDate").text
+                if item.find("pubDate") is not None
+                else "未知时间"
+            )
 
-            news_items.append({
-                'title': title,
-                'link': link,
-                'description': description,
-                'pubDate': pubDate
-            })
+            news_items.append(
+                {
+                    "title": title,
+                    "link": link,
+                    "description": description,
+                    "pubDate": pubDate,
+                }
+            )
 
         return news_items
     except Exception as e:
@@ -76,18 +88,24 @@ def fetch_news_detail(url):
         response = requests.get(url)
         response.raise_for_status()
 
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = BeautifulSoup(response.content, "html.parser")
 
         # 尝试提取正文内容 (这里的选择器需要根据实际网站结构调整)
-        content_div = soup.select_one('.content_desc, .content, article, .article-content')
+        content_div = soup.select_one(
+            ".content_desc, .content, article, .article-content"
+        )
         if content_div:
-            paragraphs = content_div.find_all('p')
-            content = '\n'.join([p.get_text().strip() for p in paragraphs if p.get_text().strip()])
+            paragraphs = content_div.find_all("p")
+            content = "\n".join(
+                [p.get_text().strip() for p in paragraphs if p.get_text().strip()]
+            )
             return content
         else:
             # 如果找不到特定的内容区域，尝试获取所有段落
-            paragraphs = soup.find_all('p')
-            content = '\n'.join([p.get_text().strip() for p in paragraphs if p.get_text().strip()])
+            paragraphs = soup.find_all("p")
+            content = "\n".join(
+                [p.get_text().strip() for p in paragraphs if p.get_text().strip()]
+            )
             return content[:2000]  # 限制长度
     except Exception as e:
         logger.bind(tag=TAG).error(f"获取新闻详情失败: {e}")
@@ -111,7 +129,7 @@ def map_category(category_text):
         "财经": "finance",
         "财经新闻": "finance",
         "金融": "finance",
-        "经济": "finance"
+        "经济": "finance",
     }
 
     # 转换为小写并去除空格
@@ -121,20 +139,36 @@ def map_category(category_text):
     return category_map.get(normalized_category, category_text)
 
 
-@register_function('get_news', GET_NEWS_FUNCTION_DESC, ToolType.SYSTEM_CTL)
-def get_news(conn, category: str = None, detail: bool = False, lang: str = "zh_CN"):
+@register_function(
+    "get_news_from_chinanews",
+    GET_NEWS_FROM_CHINANEWS_FUNCTION_DESC,
+    ToolType.SYSTEM_CTL,
+)
+def get_news_from_chinanews(
+    conn, category: str = None, detail: bool = False, lang: str = "zh_CN"
+):
     """获取新闻并随机选择一条进行播报，或获取上一条新闻的详细内容"""
     try:
         # 如果detail为True，获取上一条新闻的详细内容
         if detail:
-            if not hasattr(conn, 'last_news_link') or not conn.last_news_link or 'link' not in conn.last_news_link:
-                return ActionResponse(Action.REQLLM, "抱歉，没有找到最近查询的新闻，请先获取一条新闻。", None)
+            if (
+                not hasattr(conn, "last_news_link")
+                or not conn.last_news_link
+                or "link" not in conn.last_news_link
+            ):
+                return ActionResponse(
+                    Action.REQLLM,
+                    "抱歉，没有找到最近查询的新闻，请先获取一条新闻。",
+                    None,
+                )
 
-            link = conn.last_news_link.get('link')
-            title = conn.last_news_link.get('title', '未知标题')
+            link = conn.last_news_link.get("link")
+            title = conn.last_news_link.get("title", "未知标题")
 
-            if link == '#':
-                return ActionResponse(Action.REQLLM, "抱歉，该新闻没有可用的链接获取详细内容。", None)
+            if link == "#":
+                return ActionResponse(
+                    Action.REQLLM, "抱歉，该新闻没有可用的链接获取详细内容。", None
+                )
 
             logger.bind(tag=TAG).debug(f"获取新闻详情: {title}, URL={link}")
 
@@ -142,8 +176,11 @@ def get_news(conn, category: str = None, detail: bool = False, lang: str = "zh_C
             detail_content = fetch_news_detail(link)
 
             if not detail_content or detail_content == "无法获取详细内容":
-                return ActionResponse(Action.REQLLM,
-                                      f"抱歉，无法获取《{title}》的详细内容，可能是链接已失效或网站结构发生变化。", None)
+                return ActionResponse(
+                    Action.REQLLM,
+                    f"抱歉，无法获取《{title}》的详细内容，可能是链接已失效或网站结构发生变化。",
+                    None,
+                )
 
             # 构建详情报告
             detail_report = (
@@ -158,8 +195,10 @@ def get_news(conn, category: str = None, detail: bool = False, lang: str = "zh_C
 
         # 否则，获取新闻列表并随机选择一条
         # 从配置中获取RSS URL
-        rss_config = conn.config["plugins"]["get_news"]
-        default_rss_url = rss_config.get("default_rss_url", "https://www.chinanews.com.cn/rss/society.xml")
+        rss_config = conn.config["plugins"]["get_news_from_chinanews"]
+        default_rss_url = rss_config.get(
+            "default_rss_url", "https://www.chinanews.com.cn/rss/society.xml"
+        )
 
         # 将用户输入的类别映射到配置中的类别键
         mapped_category = map_category(category)
@@ -169,23 +208,27 @@ def get_news(conn, category: str = None, detail: bool = False, lang: str = "zh_C
         if mapped_category and mapped_category in rss_config.get("category_urls", {}):
             rss_url = rss_config["category_urls"][mapped_category]
 
-        logger.bind(tag=TAG).info(f"获取新闻: 原始类别={category}, 映射类别={mapped_category}, URL={rss_url}")
+        logger.bind(tag=TAG).info(
+            f"获取新闻: 原始类别={category}, 映射类别={mapped_category}, URL={rss_url}"
+        )
 
         # 获取新闻列表
         news_items = fetch_news_from_rss(rss_url)
 
         if not news_items:
-            return ActionResponse(Action.REQLLM, "抱歉，未能获取到新闻信息，请稍后再试。", None)
+            return ActionResponse(
+                Action.REQLLM, "抱歉，未能获取到新闻信息，请稍后再试。", None
+            )
 
         # 随机选择一条新闻
         selected_news = random.choice(news_items)
 
         # 保存当前新闻链接到连接对象，以便后续查询详情
-        if not hasattr(conn, 'last_news_link'):
+        if not hasattr(conn, "last_news_link"):
             conn.last_news_link = {}
         conn.last_news_link = {
-            'link': selected_news.get('link', '#'),
-            'title': selected_news.get('title', '未知标题')
+            "link": selected_news.get("link", "#"),
+            "title": selected_news.get("title", "未知标题"),
         }
 
         # 构建新闻报告
@@ -203,4 +246,6 @@ def get_news(conn, category: str = None, detail: bool = False, lang: str = "zh_C
 
     except Exception as e:
         logger.bind(tag=TAG).error(f"获取新闻出错: {e}")
-        return ActionResponse(Action.REQLLM, "抱歉，获取新闻时发生错误，请稍后再试。", None)
+        return ActionResponse(
+            Action.REQLLM, "抱歉，获取新闻时发生错误，请稍后再试。", None
+        )

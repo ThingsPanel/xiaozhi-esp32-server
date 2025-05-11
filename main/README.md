@@ -16,4 +16,4 @@ https://ccnphfhqs21z.feishu.cn/wiki/M0XiwldO9iJwHikpXD5cEx71nKh
 
 # manager-web 、manager-api接口协议
 
-https://2662r3426b.vicp.fun/xiaozhi/v1/doc.html
+https://2662r3426b.vicp.fun/xiaozhi/doc.html

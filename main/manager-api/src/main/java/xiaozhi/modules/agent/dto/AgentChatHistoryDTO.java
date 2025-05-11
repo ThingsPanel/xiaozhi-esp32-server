@@ -22,4 +22,7 @@ public class AgentChatHistoryDTO {
 
     @Schema(description = "音频ID")
     private String audioId;
+
+    @Schema(description = "MAC地址")
+    private String macAddress;
 }

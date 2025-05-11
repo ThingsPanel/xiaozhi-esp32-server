@@ -21,6 +21,7 @@ import xiaozhi.modules.agent.dao.AgentDao;
 import xiaozhi.modules.agent.dto.AgentDTO;
 import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.service.AgentService;
+import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.model.service.ModelConfigService;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.enums.SuperAdminEnum;
@@ -29,11 +30,11 @@ import xiaozhi.modules.timbre.service.TimbreService;
 @Service
 @AllArgsConstructor
 public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> implements AgentService {
-
     private final AgentDao agentDao;
     private final TimbreService timbreModelService;
     private final ModelConfigService modelConfigService;
     private final RedisUtils redisUtils;
+    private final DeviceService deviceService;
 
     @Override
     public PageData<AgentEntity> adminAgentList(Map<String, Object> params) {
@@ -95,9 +96,11 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
             // 获取 TTS 音色名称
             dto.setTtsVoiceName(timbreModelService.getTimbreNameById(agent.getTtsVoiceId()));
 
+            // 获取智能体最近的最后连接时长
+            dto.setLastConnectedAt(deviceService.getLatestLastConnectionTime(agent.getId()));
+
             // 获取设备数量
             dto.setDeviceCount(getDeviceCountByAgentId(agent.getId()));
-
             return dto;
         }).collect(Collectors.toList());
     }

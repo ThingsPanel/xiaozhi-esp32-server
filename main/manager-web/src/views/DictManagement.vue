@@ -49,9 +49,13 @@
                             v-loading="dictDataLoading" element-loading-text="拼命加载中"
                             element-loading-spinner="el-icon-loading"
                             element-loading-background="rgba(255, 255, 255, 0.7)"
-                            @selection-change="handleDictDataSelectionChange" class="data-table"
+                            class="data-table"
                             header-row-class-name="table-header">
-                            <el-table-column type="selection" width="55" align="center"></el-table-column>
+                            <el-table-column label="选择" align="center" width="55">
+                                <template slot-scope="scope">
+                                    <el-checkbox v-model="scope.row.selected"></el-checkbox>
+                                </template>
+                            </el-table-column>
                             <el-table-column label="字典标签" prop="dictLabel" align="center"></el-table-column>
                             <el-table-column label="字典值" prop="dictValue" align="center"></el-table-column>
                             <el-table-column label="排序" prop="sort" align="center"></el-table-column>
@@ -153,7 +157,6 @@ export default {
             // 字典数据相关
             dictDataList: [],
             dictDataLoading: false,
-            selectedDictData: [],
             isAllDictDataSelected: false,
             dictDataDialogVisible: false,
             dictDataDialogTitle: '新增字典数据',
@@ -265,7 +268,10 @@ export default {
                 dictValue: ''
             }, ({ data }) => {
                 if (data.code === 0) {
-                    this.dictDataList = data.data.list
+                    this.dictDataList = data.data.list.map(item => ({
+                        ...item,
+                        selected: false
+                    }))
                     this.total = data.data.total
                 } else {
                     this.$message.error(data.msg || '获取字典数据失败')
@@ -273,16 +279,11 @@ export default {
                 this.dictDataLoading = false
             })
         },
-        handleDictDataSelectionChange(val) {
-            this.selectedDictData = val
-            this.isAllDictDataSelected = val.length === this.dictDataList.length
-        },
         selectAllDictData() {
-            if (this.isAllDictDataSelected) {
-                this.$refs.dictDataTable.clearSelection()
-            } else {
-                this.$refs.dictDataTable.toggleAllSelection()
-            }
+            this.isAllDictDataSelected = !this.isAllDictDataSelected
+            this.dictDataList.forEach(row => {
+                row.selected = this.isAllDictDataSelected
+            })
         },
         showAddDictDataDialog() {
             if (!this.selectedDictType) {
@@ -329,17 +330,18 @@ export default {
             })
         },
         batchDeleteDictData() {
-            if (this.selectedDictData.length === 0) {
+            const selectedRows = this.dictDataList.filter(row => row.selected)
+            if (selectedRows.length === 0) {
                 this.$message.warning('请选择要删除的字典数据')
                 return
             }
 
-            this.$confirm('确定要删除选中的字典数据吗?', '提示', {
+            this.$confirm(`确定要删除选中的${selectedRows.length}个字典数据吗?`, '提示', {
                 confirmButtonText: '确定',
                 cancelButtonText: '取消',
                 type: 'warning'
             }).then(() => {
-                const ids = this.selectedDictData.map(item => item.id)
+                const ids = selectedRows.map(item => item.id)
                 dictApi.deleteDictData(ids, ({ data }) => {
                     if (data.code === 0) {
                         this.$message.success('删除成功')
@@ -831,5 +833,19 @@ export default {
     flex-direction: column;
     flex: 1;
     overflow: hidden;
+}
+
+:deep(.el-checkbox__inner) {
+    background-color: #eeeeee !important;
+    border-color: #cccccc !important;
+}
+
+:deep(.el-checkbox__inner:hover) {
+    border-color: #cccccc !important;
+}
+
+:deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+    background-color: #5f70f3 !important;
+    border-color: #5f70f3 !important;
 }
 </style>

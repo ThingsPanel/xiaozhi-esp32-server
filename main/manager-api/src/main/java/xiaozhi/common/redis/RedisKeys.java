@@ -63,6 +63,13 @@ public class RedisKeys {
     }
 
     /**
+     * 获取智能体最后连接时间缓存key
+     */
+    public static String getAgentDeviceLastConnectedAtById(String id) {
+        return "agent:device:lastConnected:" + id;
+    }
+
+    /**
      * 获取系统配置缓存key
      */
     public static String getServerConfigKey() {
@@ -102,5 +109,12 @@ public class RedisKeys {
      */
     public static String getDictDataByTypeKey(String dictType) {
         return "sys:dict:data:" + dictType;
+    }
+
+    /**
+     * 获取智能体音频ID的缓存key
+     */
+    public static String getAgentAudioIdKey(String uuid) {
+        return "agent:audio:id:" + uuid;
     }
 }

@@ -8,7 +8,7 @@ HASS_CACHE = {}
 
 
 def append_devices_to_prompt(conn):
-    if conn.use_function_call_mode:
+    if conn.intent_type == "function_call":
         funcs = conn.config["Intent"][conn.config["selected_module"]["Intent"]].get(
             "functions", []
         )
@@ -27,7 +27,7 @@ def append_devices_to_prompt(conn):
 def initialize_hass_handler(conn):
     global HASS_CACHE
     if HASS_CACHE == {}:
-        if conn.use_function_call_mode:
+        if conn.load_function_plugin:
             funcs = conn.config["Intent"][conn.config["selected_module"]["Intent"]].get(
                 "functions", []
             )

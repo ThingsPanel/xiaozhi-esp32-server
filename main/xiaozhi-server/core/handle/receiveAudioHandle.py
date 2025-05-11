@@ -1,4 +1,3 @@
-from config.logger import setup_logging
 import time
 import copy
 from core.utils.util import remove_punctuation_and_length
@@ -6,16 +5,18 @@ from core.handle.sendAudioHandle import send_stt_message
 from core.handle.intentHandler import handle_user_intent
 from core.utils.output_counter import check_device_output_limit
 from core.handle.ttsReportHandle import enqueue_tts_report
+from core.utils.util import audio_to_data
 
 TAG = __name__
-logger = setup_logging()
 
 
 async def handleAudioMessage(conn, audio):
-    if not conn.asr_server_receive:
-        logger.bind(tag=TAG).debug(f"前期数据处理中，暂停接收")
+    if conn.vad is None:
         return
-    if conn.client_listen_mode == "auto":
+    if not conn.asr_server_receive:
+        conn.logger.bind(tag=TAG).debug(f"前期数据处理中，暂停接收")
+        return
+    if conn.client_listen_mode == "auto" or conn.client_listen_mode == "realtime":
         have_voice = conn.vad.is_vad(conn, audio)
     else:
         have_voice = conn.client_have_voice
@@ -39,7 +40,7 @@ async def handleAudioMessage(conn, audio):
             conn.asr_server_receive = True
         else:
             text, _ = await conn.asr.speech_to_text(conn.asr_audio, conn.session_id)
-            logger.bind(tag=TAG).info(f"识别文本: {text}")
+            conn.logger.bind(tag=TAG).info(f"识别文本: {text}")
             text_len, _ = remove_punctuation_and_length(text)
             if text_len > 0:
                 # 使用自定义模块进行上报
@@ -75,7 +76,7 @@ async def startToChat(conn, text):
 
     # 意图未被处理，继续常规聊天流程
     await send_stt_message(conn, text)
-    if conn.use_function_call_mode:
+    if conn.intent_type == "function_call":
         # 使用支持function calling的聊天方法
         conn.executor.submit(conn.chat_with_function_calling, text)
     else:
@@ -110,7 +111,7 @@ async def max_out_size(conn):
     conn.tts_last_text_index = 0
     conn.llm_finish_task = True
     file_path = "config/assets/max_output_size.wav"
-    opus_packets, _ = conn.tts.audio_to_opus_data(file_path)
+    opus_packets, _ = audio_to_data(file_path)
     conn.audio_play_queue.put((opus_packets, text, 0))
     conn.close_after_chat = True
 
@@ -119,7 +120,7 @@ async def check_bind_device(conn):
     if conn.bind_code:
         # 确保bind_code是6位数字
         if len(conn.bind_code) != 6:
-            logger.bind(tag=TAG).error(f"无效的绑定码格式: {conn.bind_code}")
+            conn.logger.bind(tag=TAG).error(f"无效的绑定码格式: {conn.bind_code}")
             text = "绑定码格式错误，请检查配置。"
             await send_stt_message(conn, text)
             return
@@ -132,7 +133,7 @@ async def check_bind_device(conn):
 
         # 播放提示音
         music_path = "config/assets/bind_code.wav"
-        opus_packets, _ = conn.tts.audio_to_opus_data(music_path)
+        opus_packets, _ = audio_to_data(music_path)
         conn.audio_play_queue.put((opus_packets, text, 0))
 
         # 逐个播放数字
@@ -140,10 +141,10 @@ async def check_bind_device(conn):
             try:
                 digit = conn.bind_code[i]
                 num_path = f"config/assets/bind_code/{digit}.wav"
-                num_packets, _ = conn.tts.audio_to_opus_data(num_path)
+                num_packets, _ = audio_to_data(num_path)
                 conn.audio_play_queue.put((num_packets, None, i + 1))
             except Exception as e:
-                logger.bind(tag=TAG).error(f"播放数字音频失败: {e}")
+                conn.logger.bind(tag=TAG).error(f"播放数字音频失败: {e}")
                 continue
     else:
         text = f"没有找到该设备的版本信息，请正确配置 OTA地址，然后重新编译固件。"
@@ -152,5 +153,5 @@ async def check_bind_device(conn):
         conn.tts_last_text_index = 0
         conn.llm_finish_task = True
         music_path = "config/assets/bind_not_found.wav"
-        opus_packets, _ = conn.tts.audio_to_opus_data(music_path)
+        opus_packets, _ = audio_to_data(music_path)
         conn.audio_play_queue.put((opus_packets, text, 0))

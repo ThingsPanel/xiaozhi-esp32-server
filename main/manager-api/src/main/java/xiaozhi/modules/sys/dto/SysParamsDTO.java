@@ -39,7 +39,7 @@ public class SysParamsDTO implements Serializable {
 
     @Schema(description = "值类型")
     @NotBlank(message = "{sysparams.valuetype.require}", groups = DefaultGroup.class)
-    @Pattern(regexp = "^(string|number|boolean|array)$", message = "{sysparams.valuetype.pattern}", groups = DefaultGroup.class)
+    @Pattern(regexp = "^(string|number|boolean|array|json)$", message = "{sysparams.valuetype.pattern}", groups = DefaultGroup.class)
     private String valueType;
 
     @Schema(description = "备注")

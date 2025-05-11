@@ -1,5 +1,5 @@
 <template>
-    <el-dialog :title="title" :visible.sync="visible" width="500px" @close="handleClose">
+    <el-dialog :title="title" :visible.sync="dialogVisible" width="30%" @close="handleClose">
         <el-form :model="form" :rules="rules" ref="form" label-width="100px">
             <el-form-item label="字典标签" prop="dictLabel">
                 <el-input v-model="form.dictLabel" placeholder="请输入字典标签"></el-input>
@@ -41,6 +41,7 @@ export default {
     },
     data() {
         return {
+            dialogVisible: this.visible,
             form: {
                 id: null,
                 dictTypeId: null,
@@ -70,12 +71,18 @@ export default {
                 }
             },
             immediate: true
+        },
+        visible(val) {
+          this.dialogVisible = val;
+        },
+        dialogVisible(val) {
+          this.$emit('update:visible', val);
         }
     },
     methods: {
         handleClose() {
-            this.$emit('update:visible', false)
-            this.resetForm()
+          this.dialogVisible = false;
+          this.resetForm();
         },
         resetForm() {
             this.form = {
@@ -102,4 +109,8 @@ export default {
 .dialog-footer {
     text-align: right;
 }
+:deep(.el-dialog) {
+    border-radius: 15px;
+}
+
 </style>

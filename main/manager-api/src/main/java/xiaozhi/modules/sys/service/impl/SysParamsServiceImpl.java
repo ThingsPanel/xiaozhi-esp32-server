@@ -127,6 +127,12 @@ public class SysParamsServiceImpl extends BaseServiceImpl<SysParamsDao, SysParam
                 break;
             case "json":
                 try {
+                    // 首先检查是否以 { 开头，以 } 结尾
+                    String trimmedValue = paramValue.trim();
+                    if (!trimmedValue.startsWith("{") || !trimmedValue.endsWith("}")) {
+                        throw new RenException(ErrorCode.PARAM_JSON_INVALID);
+                    }
+                    // 然后尝试解析JSON
                     JsonUtils.parseObject(paramValue, Object.class);
                 } catch (Exception e) {
                     throw new RenException(ErrorCode.PARAM_JSON_INVALID);

@@ -1,4 +1,3 @@
-from config.logger import setup_logging
 import json
 from core.handle.abortHandle import handleAbortMessage
 from core.handle.helloHandle import handleHelloMessage
@@ -10,25 +9,26 @@ from core.handle.ttsReportHandle import enqueue_tts_report
 import asyncio
 
 TAG = __name__
-logger = setup_logging()
 
 
 async def handleTextMessage(conn, message):
     """处理文本消息"""
-    logger.bind(tag=TAG).info(f"收到文本消息：{message}")
+    conn.logger.bind(tag=TAG).info(f"收到文本消息：{message}")
     try:
         msg_json = json.loads(message)
         if isinstance(msg_json, int):
             await conn.websocket.send(message)
             return
         if msg_json["type"] == "hello":
-            await handleHelloMessage(conn)
+            await handleHelloMessage(conn, msg_json)
         elif msg_json["type"] == "abort":
             await handleAbortMessage(conn)
         elif msg_json["type"] == "listen":
             if "mode" in msg_json:
                 conn.client_listen_mode = msg_json["mode"]
-                logger.bind(tag=TAG).debug(f"客户端拾音模式：{conn.client_listen_mode}")
+                conn.logger.bind(tag=TAG).debug(
+                    f"客户端拾音模式：{conn.client_listen_mode}"
+                )
             if msg_json["state"] == "start":
                 conn.client_have_voice = True
                 conn.client_voice_stop = False
@@ -80,7 +80,7 @@ async def handleTextMessage(conn, message):
                 await conn.websocket.send(
                     json.dumps(
                         {
-                            "type": "config_update_response",
+                            "type": "server",
                             "status": "error",
                             "message": "服务器密钥验证失败",
                         }
@@ -89,6 +89,55 @@ async def handleTextMessage(conn, message):
                 return
             # 动态更新配置
             if msg_json["action"] == "update_config":
-                await conn.handle_config_update(msg_json)
+                try:
+                    # 更新WebSocketServer的配置
+                    if not conn.server:
+                        await conn.websocket.send(
+                            json.dumps(
+                                {
+                                    "type": "config_update_response",
+                                    "status": "error",
+                                    "message": "无法获取服务器实例",
+                                }
+                            )
+                        )
+                        return
+
+                    if not await conn.server.update_config():
+                        await conn.websocket.send(
+                            json.dumps(
+                                {
+                                    "type": "config_update_response",
+                                    "status": "error",
+                                    "message": "更新服务器配置失败",
+                                }
+                            )
+                        )
+                        return
+
+                    # 发送成功响应
+                    await conn.websocket.send(
+                        json.dumps(
+                            {
+                                "type": "config_update_response",
+                                "status": "success",
+                                "message": "配置更新成功",
+                            }
+                        )
+                    )
+                except Exception as e:
+                    conn.logger.bind(tag=TAG).error(f"更新配置失败: {str(e)}")
+                    await conn.websocket.send(
+                        json.dumps(
+                            {
+                                "type": "config_update_response",
+                                "status": "error",
+                                "message": f"更新配置失败: {str(e)}",
+                            }
+                        )
+                    )
+            # 重启服务器
+            elif msg_json["action"] == "restart":
+                await conn.handle_restart(msg_json)
     except json.JSONDecodeError:
         await conn.websocket.send(message)

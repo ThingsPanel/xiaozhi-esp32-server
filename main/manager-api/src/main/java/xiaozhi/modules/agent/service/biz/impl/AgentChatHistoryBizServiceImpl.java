@@ -1,12 +1,15 @@
 package xiaozhi.modules.agent.service.biz.impl;
 
 import java.util.Base64;
+import java.util.Date;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import xiaozhi.common.redis.RedisKeys;
+import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.modules.agent.dto.AgentChatHistoryReportDTO;
 import xiaozhi.modules.agent.entity.AgentChatHistoryEntity;
 import xiaozhi.modules.agent.entity.AgentEntity;
@@ -29,6 +32,7 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
     private final AgentService agentService;
     private final AgentChatHistoryService agentChatHistoryService;
     private final AgentChatAudioService agentChatAudioService;
+    private final RedisUtils redisUtils;
 
     /**
      * 处理聊天记录上报，包括文件上传和相关信息记录
@@ -77,6 +81,8 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
 
         // 3. 保存数据
         agentChatHistoryService.save(entity);
+        // 4. 更新设备最后对话时间
+        redisUtils.set(RedisKeys.getAgentDeviceLastConnectedAtById(agentId), new Date());
         return Boolean.TRUE;
     }
 }

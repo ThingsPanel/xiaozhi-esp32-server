@@ -318,7 +318,6 @@ export default {
 <style scoped>
 .welcome {
   min-width: 900px;
-  min-height: 506px;
   height: 100vh;
   display: flex;
   position: relative;
@@ -334,7 +333,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 1.5vh 24px;
 }
 
 .page-title {
@@ -344,7 +343,7 @@ export default {
 }
 
 .main-wrapper {
-  margin: 5px 22px;
+  margin: 1vh 22px;
   border-radius: 15px;
   height: calc(100vh - 24vh);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -416,7 +415,7 @@ export default {
 }
 
 .form-content {
-  padding: 20px 0;
+  padding: 2vh 0;
 }
 
 .form-grid {
@@ -450,11 +449,11 @@ export default {
 }
 
 .template-item {
-  height: 37px;
+  height: 4vh;
   width: 76px;
   border-radius: 8px;
   background: #e6ebff;
-  line-height: 37px;
+  line-height: 4vh;
   font-weight: 400;
   font-size: 11px;
   text-align: center;
@@ -471,7 +470,7 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 20px;
+  margin-top: 2vh;
   align-items: center;
 }
 

@@ -487,7 +487,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 
 ::v-deep .el-dialog {
   border-radius: 8px !important;
@@ -648,12 +648,6 @@ export default {
   margin: 0 auto;
 }
 
-/* 新增按钮组样式 */
-.action-buttons {
-  bottom: 20px;
-  padding-top: 10px;
-}
-
 .action-buttons .el-button {
   padding: 8px 15px;
   font-size: 11px;
@@ -692,7 +686,6 @@ export default {
   position: static;
   padding: 15px 0;
   background: white;
-  box-shadow: 0 -2px 12px rgba(0,0,0,0.05);
 }
 
 /* 输入框自适应 */

@@ -9,16 +9,11 @@ TTS上报功能已集成到ConnectionHandler类中。
 具体实现请参考core/connection.py中的相关代码。
 """
 
-import os
-import uuid
-import wave
 import opuslib_next
 
-from config.logger import setup_logging
 from config.manage_api_client import report
 
 TAG = __name__
-logger = setup_logging()
 
 
 def report_tts(conn, type, text, opus_data):
@@ -32,7 +27,7 @@ def report_tts(conn, type, text, opus_data):
     """
     try:
         if opus_data:
-            audio_data = opus_to_wav(opus_data)
+            audio_data = opus_to_wav(conn, opus_data)
         else:
             audio_data = None
         # 执行上报
@@ -44,10 +39,10 @@ def report_tts(conn, type, text, opus_data):
             audio=audio_data,
         )
     except Exception as e:
-        logger.bind(tag=TAG).error(f"TTS上报失败: {e}")
+        conn.logger.bind(tag=TAG).error(f"TTS上报失败: {e}")
 
 
-def opus_to_wav(opus_data):
+def opus_to_wav(conn, opus_data):
     """将Opus数据转换为WAV格式的字节流
 
     Args:
@@ -65,7 +60,7 @@ def opus_to_wav(opus_data):
             pcm_frame = decoder.decode(opus_packet, 960)  # 960 samples = 60ms
             pcm_data.append(pcm_frame)
         except opuslib_next.OpusError as e:
-            logger.bind(tag=TAG).error(f"Opus解码错误: {e}", exc_info=True)
+            conn.logger.bind(tag=TAG).error(f"Opus解码错误: {e}", exc_info=True)
 
     if not pcm_data:
         raise ValueError("没有有效的PCM数据")
@@ -95,7 +90,7 @@ def opus_to_wav(opus_data):
 
 
 def enqueue_tts_report(conn, type, text, opus_data):
-    if not conn.read_config_from_api:
+    if not conn.read_config_from_api or conn.need_bind:
         return
     """将TTS数据加入上报队列
 
@@ -108,8 +103,8 @@ def enqueue_tts_report(conn, type, text, opus_data):
         # 使用连接对象的队列，传入文本和二进制数据而非文件路径
         conn.tts_report_queue.put((type, text, opus_data))
 
-        logger.bind(tag=TAG).info(
+        conn.logger.bind(tag=TAG).debug(
             f"TTS数据已加入上报队列: {conn.device_id}, 音频大小: {len(opus_data)} "
         )
     except Exception as e:
-        logger.bind(tag=TAG).error(f"加入TTS上报队列失败: {text}, {e}")
+        conn.logger.bind(tag=TAG).error(f"加入TTS上报队列失败: {text}, {e}")

@@ -1,5 +1,5 @@
 <template>
-  <el-dialog :title="title" :visible.sync="visible" width="500px" @close="handleClose" @open="handleOpen">
+  <el-dialog :title="title" :visible.sync="dialogVisible" width="30%" @close="handleClose" @open="handleOpen">
     <el-form ref="form" :model="form" :rules="rules" label-width="100px">
       <el-form-item label="固件名称" prop="firmwareName">
         <el-input v-model="form.firmwareName" placeholder="请输入固件名称(板子+版本号)"></el-input>
@@ -59,11 +59,13 @@ export default {
       default: () => []
     }
   },
+
   data() {
     return {
       uploadProgress: 0,
       uploadStatus: '',
       isUploading: false,
+      dialogVisible: this.visible,
       rules: {
         firmwareName: [
           { required: true, message: '请输入固件名称(板子+版本号)', trigger: 'blur' }
@@ -90,10 +92,18 @@ export default {
   created() {
     // 移除 getDictDataByType 调用
   },
+  watch: {
+    visible(val) {
+      this.dialogVisible = val;
+    },
+    dialogVisible(val) {
+      this.$emit('update:visible', val);
+    },
+  },
   methods: {
     // 移除 getFirmwareTypes 方法
     handleClose() {
-      this.$refs.form.clearValidate();
+      this.dialogVisible = false;
       this.$emit('cancel');
     },
     handleCancel() {
@@ -201,13 +211,17 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+::v-deep .el-dialog {
+  border-radius: 20px;
+}
+
 .upload-demo {
   text-align: left;
 }
 
 .el-upload__tip {
   line-height: 1.2;
-  padding-top: 5px;
+  padding-top: 2%;
   color: #909399;
 }
 

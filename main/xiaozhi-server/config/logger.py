@@ -4,14 +4,20 @@ from loguru import logger
 from config.config_loader import load_config
 from config.settings import check_config_file
 
-SERVER_VERSION = "0.3.14"
+SERVER_VERSION = "0.4.2"
 
 
 def get_module_abbreviation(module_name, module_dict):
-    """获取模块名称的缩写，如果为空则返回00"""
-    return (
-        module_dict.get(module_name, "")[:2] if module_dict.get(module_name) else "00"
-    )
+    """获取模块名称的缩写，如果为空则返回00
+    如果名称中包含下划线，则返回下划线后面的前两个字符
+    """
+    module_value = module_dict.get(module_name, "")
+    if not module_value:
+        return "00"
+    if "_" in module_value:
+        parts = module_value.split("_")
+        return parts[-1][:2] if parts[-1] else "00"
+    return module_value[:2]
 
 
 def build_module_string(selected_module):

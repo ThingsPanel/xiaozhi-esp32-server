@@ -127,7 +127,8 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
         DeviceEntity deviceById = getDeviceByMacAddress(macAddress);
 
-        if (deviceById == null || deviceById.getAutoUpdate() != 0) {
+        // 只有在设备已绑定且autoUpdate不为0的情况下才返回固件升级信息
+        if (deviceById != null && deviceById.getAutoUpdate() != 0) {
             String type = deviceReport.getBoard() == null ? null : deviceReport.getBoard().getType();
             DeviceReportRespDTO.Firmware firmware = buildFirmwareInfo(type,
                     deviceReport.getApplication() == null ? null : deviceReport.getApplication().getVersion());
@@ -265,6 +266,20 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             return cachedCode;
         }
         return null;
+    }
+
+    @Override
+    public Date getLatestLastConnectionTime(String agentId) {
+        // 查询是否有缓存时间，有则返回
+        Date cachedDate = (Date) redisUtils.get(RedisKeys.getAgentDeviceLastConnectedAtById(agentId));
+        if (cachedDate != null) {
+            return cachedDate;
+        }
+        Date maxDate = deviceDao.getAllLastConnectedAtByAgentId(agentId);
+        if (maxDate != null) {
+            redisUtils.set(RedisKeys.getAgentDeviceLastConnectedAtById(agentId), maxDate);
+        }
+        return maxDate;
     }
 
     private String getDeviceCacheKey(String deviceId) {

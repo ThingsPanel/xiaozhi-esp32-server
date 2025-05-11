@@ -1,5 +1,5 @@
 <template>
-  <el-dialog :visible="dialogVisible" @update:visible="handleVisibleChange" width="975px" center
+  <el-dialog :visible="dialogVisible" @update:visible="handleVisibleChange" width="57%" center
     custom-class="custom-dialog" :show-close="false" class="center-dialog">
     <div style="margin: 0 18px; text-align: left; padding: 10px; border-radius: 10px;">
       <div style="font-size: 30px; color: #3d4566; margin-top: -10px; margin-bottom: 10px; text-align: center;">
@@ -54,7 +54,7 @@
         </el-form-item>
 
         <el-form-item label="备注" prop="remark" class="prop-remark">
-          <el-input v-model="formData.remark" type="textarea" :rows="3" placeholder="请输入模型备注"
+          <el-input v-model="formData.remark" type="textarea" :rows="3" placeholder="请输入模型备注" :autosize="{ minRows: 3, maxRows: 5 }"
             class="custom-input-bg"></el-input>
         </el-form-item>
       </el-form>
@@ -271,7 +271,7 @@ export default {
 }
 
 .center-dialog .el-dialog {
-  margin: 4% 0 auto !important;
+  margin: 0 0 auto !important;
   display: flex;
   flex-direction: column;
 }

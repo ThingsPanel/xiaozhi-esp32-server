@@ -3,8 +3,13 @@ package xiaozhi.modules.agent.controller;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,6 +30,8 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import xiaozhi.common.constant.Constant;
 import xiaozhi.common.page.PageData;
+import xiaozhi.common.redis.RedisKeys;
+import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.Result;
@@ -35,6 +42,7 @@ import xiaozhi.modules.agent.dto.AgentDTO;
 import xiaozhi.modules.agent.dto.AgentUpdateDTO;
 import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.entity.AgentTemplateEntity;
+import xiaozhi.modules.agent.service.AgentChatAudioService;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.AgentTemplateService;
@@ -50,6 +58,8 @@ public class AgentController {
     private final AgentTemplateService agentTemplateService;
     private final DeviceService deviceService;
     private final AgentChatHistoryService agentChatHistoryService;
+    private final AgentChatAudioService agentChatAudioService;
+    private final RedisUtils redisUtils;
 
     @GetMapping("/list")
     @Operation(summary = "获取用户智能体列表")
@@ -84,7 +94,7 @@ public class AgentController {
     @PostMapping
     @Operation(summary = "创建智能体")
     @RequiresPermissions("sys:role:normal")
-    public Result<Void> save(@RequestBody @Valid AgentCreateDTO dto) {
+    public Result<String> save(@RequestBody @Valid AgentCreateDTO dto) {
         AgentEntity entity = ConvertUtils.sourceToTarget(dto, AgentEntity.class);
 
         // 获取默认模板
@@ -112,7 +122,7 @@ public class AgentController {
         // ID、智能体编码和排序会在Service层自动生成
         agentService.insert(entity);
 
-        return new Result<>();
+        return new Result<String>().ok(entity.getId());
     }
 
     @PutMapping("/{id}")
@@ -182,6 +192,8 @@ public class AgentController {
     public Result<Void> delete(@PathVariable String id) {
         // 先删除关联的设备
         deviceService.deleteByAgentId(id);
+        // 删除关联的聊天记录
+        agentChatHistoryService.deleteByAgentId(id);
         // 再删除智能体
         agentService.deleteById(id);
         return new Result<>();
@@ -229,4 +241,38 @@ public class AgentController {
         List<AgentChatHistoryDTO> result = agentChatHistoryService.getChatHistoryBySessionId(id, sessionId);
         return new Result<List<AgentChatHistoryDTO>>().ok(result);
     }
+
+    @PostMapping("/audio/{audioId}")
+    @Operation(summary = "获取音频下载ID")
+    @RequiresPermissions("sys:role:normal")
+    public Result<String> getAudioId(@PathVariable("audioId") String audioId) {
+        byte[] audioData = agentChatAudioService.getAudio(audioId);
+        if (audioData == null) {
+            return new Result<String>().error("音频不存在");
+        }
+        String uuid = UUID.randomUUID().toString();
+        redisUtils.set(RedisKeys.getAgentAudioIdKey(uuid), audioId);
+        return new Result<String>().ok(uuid);
+    }
+
+    @GetMapping("/play/{uuid}")
+    @Operation(summary = "播放音频")
+    public ResponseEntity<byte[]> playAudio(@PathVariable("uuid") String uuid) {
+
+        String audioId = (String) redisUtils.get(RedisKeys.getAgentAudioIdKey(uuid));
+        if (StringUtils.isBlank(audioId)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        byte[] audioData = agentChatAudioService.getAudio(audioId);
+        if (audioData == null) {
+            return ResponseEntity.notFound().build();
+        }
+        redisUtils.delete(RedisKeys.getAgentAudioIdKey(uuid));
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"play.wav\"")
+                .body(audioData);
+    }
+
 }

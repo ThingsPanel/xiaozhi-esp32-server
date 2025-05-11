@@ -1,6 +1,9 @@
 package xiaozhi.modules.security.config;
 
-import jakarta.servlet.Filter;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.session.mgt.SessionManager;
 import org.apache.shiro.spring.LifecycleBeanPostProcessor;
@@ -11,14 +14,12 @@ import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
 import org.apache.shiro.web.session.mgt.DefaultWebSessionManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import jakarta.servlet.Filter;
 import xiaozhi.modules.security.oauth2.Oauth2Filter;
 import xiaozhi.modules.security.oauth2.Oauth2Realm;
 import xiaozhi.modules.security.secret.ServerSecretFilter;
 import xiaozhi.modules.sys.service.SysParamsService;
-
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * Shiro的配置文件
@@ -85,8 +86,7 @@ public class ShiroConfig {
         // 将config路径使用server服务过滤器
         filterMap.put("/config/**", "server");
         filterMap.put("/agent/chat-history/report", "server");
-        filterMap.put("/device/status", "anon");
-        filterMap.put("/device/bind", "anon");
+        filterMap.put("/agent/play/**", "anon");
         filterMap.put("/**", "oauth2");
         shiroFilter.setFilterChainDefinitionMap(filterMap);
 

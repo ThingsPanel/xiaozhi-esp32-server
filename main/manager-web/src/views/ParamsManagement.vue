@@ -25,8 +25,19 @@
                                 </template>
                             </el-table-column>
                             <el-table-column label="参数编码" prop="paramCode" align="center"></el-table-column>
-                            <el-table-column label="参数值" prop="paramValue" align="center"
-                                show-overflow-tooltip></el-table-column>
+                            <el-table-column label="参数值" prop="paramValue" align="center" show-overflow-tooltip>
+                                <template slot-scope="scope">
+                                    <div v-if="isSensitiveParam(scope.row.paramCode)">
+                                        <span v-if="!scope.row.showValue">{{ maskSensitiveValue(scope.row.paramValue)
+                                        }}</span>
+                                        <span v-else>{{ scope.row.paramValue }}</span>
+                                        <el-button size="mini" type="text" @click="toggleSensitiveValue(scope.row)">
+                                            {{ scope.row.showValue ? '隐藏' : '查看' }}
+                                        </el-button>
+                                    </div>
+                                    <span v-else>{{ scope.row.paramValue }}</span>
+                                </template>
+                            </el-table-column>
                             <el-table-column label="备注" prop="remark" align="center"></el-table-column>
                             <el-table-column label="操作" align="center">
                                 <template slot-scope="scope">
@@ -100,6 +111,7 @@ export default {
             dialogVisible: false,
             dialogTitle: "新增参数",
             isAllSelected: false,
+            sensitive_keys: ["api_key", "personal_access_token", "access_token", "token", "secret", "access_key_secret", "secret_key"],
             paramForm: {
                 id: null,
                 paramCode: "",
@@ -152,7 +164,8 @@ export default {
                     if (data.code === 0) {
                         this.paramsList = data.data.list.map(item => ({
                             ...item,
-                            selected: false
+                            selected: false,
+                            showValue: false
                         }));
                         this.total = data.data.total;
                     } else {
@@ -314,7 +327,18 @@ export default {
         goToPage(page) {
             this.currentPage = page;
             this.fetchParams();
-        }
+        },
+        isSensitiveParam(paramCode) {
+            return this.sensitive_keys.some(key => paramCode.toLowerCase().includes(key.toLowerCase()));
+        },
+        maskSensitiveValue(value) {
+            if (!value) return '';
+            if (value.length <= 8) return '****';
+            return value.substring(0, 4) + '****' + value.substring(value.length - 4);
+        },
+        toggleSensitiveValue(row) {
+            this.$set(row, 'showValue', !row.showValue);
+        },
     },
 };
 </script>

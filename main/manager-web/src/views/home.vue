@@ -32,11 +32,7 @@
         </div>
         <div class="device-list-container">
           <template v-if="isLoading">
-            <div
-              v-for="i in skeletonCount"
-              :key="'skeleton-'+i"
-              class="skeleton-item"
-            >
+            <div v-for="i in skeletonCount" :key="'skeleton-' + i" class="skeleton-item">
               <div class="skeleton-image"></div>
               <div class="skeleton-content">
                 <div class="skeleton-line"></div>
@@ -46,14 +42,8 @@
           </template>
 
           <template v-else>
-            <DeviceItem
-              v-for="(item, index) in devices"
-              :key="index"
-              :device="item"
-              @configure="goToRoleConfig"
-              @deviceManage="handleDeviceManage"
-              @delete="handleDeleteAgent"
-            />
+            <DeviceItem v-for="(item, index) in devices" :key="index" :device="item" @configure="goToRoleConfig"
+              @deviceManage="handleDeviceManage" @delete="handleDeleteAgent" @chat-history="handleShowChatHistory" />
           </template>
         </div>
       </div>
@@ -62,6 +52,7 @@
     <el-footer>
       <version-footer />
     </el-footer>
+    <chat-history-dialog :visible.sync="showChatHistory" :agent-id="currentAgentId" :agent-name="currentAgentName" />
   </div>
 
 </template>
@@ -69,13 +60,14 @@
 <script>
 import Api from '@/apis/api';
 import AddWisdomBodyDialog from '@/components/AddWisdomBodyDialog.vue';
+import ChatHistoryDialog from '@/components/ChatHistoryDialog.vue';
 import DeviceItem from '@/components/DeviceItem.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import VersionFooter from '@/components/VersionFooter.vue';
 
 export default {
   name: 'HomePage',
-  components: { DeviceItem, AddWisdomBodyDialog, HeaderBar, VersionFooter },
+  components: { DeviceItem, AddWisdomBodyDialog, HeaderBar, VersionFooter, ChatHistoryDialog },
   data() {
     return {
       addDeviceDialogVisible: false,
@@ -85,6 +77,9 @@ export default {
       searchRegex: null,
       isLoading: true,
       skeletonCount: localStorage.getItem('skeletonCount') || 8,
+      showChatHistory: false,
+      currentAgentId: '',
+      currentAgentName: ''
     }
   },
 
@@ -177,6 +172,11 @@ export default {
           }
         });
       }).catch(() => { });
+    },
+    handleShowChatHistory({ agentId, agentName }) {
+      this.currentAgentId = agentId;
+      this.currentAgentName = agentName;
+      this.showChatHistory = true;
     }
   }
 }
@@ -302,7 +302,9 @@ export default {
 
 /* 骨架屏动画 */
 @keyframes shimmer {
-  100% { transform: translateX(100%); }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .skeleton-item {
@@ -353,12 +355,10 @@ export default {
   left: 0;
   width: 50%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    rgba(255,255,255,0),
-    rgba(255,255,255,0.3),
-    rgba(255,255,255,0)
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0),
+      rgba(255, 255, 255, 0.3),
+      rgba(255, 255, 255, 0));
   animation: shimmer 1.5s infinite;
 }
 </style>

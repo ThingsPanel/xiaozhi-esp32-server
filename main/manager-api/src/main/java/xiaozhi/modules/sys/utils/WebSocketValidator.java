@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.WebSocketClient;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 
@@ -45,8 +46,9 @@ public class WebSocketValidator {
         try {
             WebSocketClient client = new StandardWebSocketClient();
             CompletableFuture<Boolean> future = new CompletableFuture<>();
+            WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
 
-            client.doHandshake(new WebSocketTestHandler(future), null, URI.create(url));
+            client.execute(new WebSocketTestHandler(future), headers, URI.create(url));
 
             // 等待最多5秒获取连接结果
             return future.get(5, TimeUnit.SECONDS);

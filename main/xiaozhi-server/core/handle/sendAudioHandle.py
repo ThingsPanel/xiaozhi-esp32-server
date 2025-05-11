@@ -1,11 +1,9 @@
-from config.logger import setup_logging
 import json
 import asyncio
 import time
 from core.utils.util import get_string_no_punctuation_or_emoji, analyze_emotion
 
 TAG = __name__
-logger = setup_logging()
 
 emoji_map = {
     "neutral": "😶",
@@ -49,10 +47,10 @@ async def sendAudioMessage(conn, audios, text, text_index=0):
         )
 
     if text_index == conn.tts_first_text_index:
-        logger.bind(tag=TAG).info(f"发送第一段语音: {text}")
+        conn.logger.bind(tag=TAG).info(f"发送第一段语音: {text}")
     await send_tts_message(conn, "sentence_start", text)
 
-    is_first_audio = (text_index == conn.tts_first_text_index)
+    is_first_audio = text_index == conn.tts_first_text_index
     await sendAudio(conn, audios, pre_buffer=is_first_audio)
 
     await send_tts_message(conn, "sentence_end", text)
@@ -117,7 +115,7 @@ async def send_tts_message(conn, state, text=None):
             stop_tts_notify_voice = conn.config.get(
                 "stop_tts_notify_voice", "config/assets/tts_notify.mp3"
             )
-            audios, duration = conn.tts.audio_to_opus_data(stop_tts_notify_voice)
+            audios, _ = conn.tts.audio_to_opus_data(stop_tts_notify_voice)
             await sendAudio(conn, audios)
         # 清除服务端讲话状态
         conn.clearSpeakStatus()

@@ -177,5 +177,7 @@ class TTSProvider(TTSProviderBase):
                 audio_file.write(audio_content)
 
         else:
-            print(f"Request failed with status code {response.status_code}")
+            error_msg = f"Request failed with status code {response.status_code}"
+            print(error_msg)
             print(response.json())
+            raise Exception(error_msg)

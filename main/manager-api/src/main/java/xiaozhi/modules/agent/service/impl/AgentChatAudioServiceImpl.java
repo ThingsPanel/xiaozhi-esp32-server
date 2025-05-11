@@ -25,4 +25,10 @@ public class AgentChatAudioServiceImpl extends ServiceImpl<AiAgentChatAudioDao, 
         save(entity);
         return entity.getId();
     }
+
+    @Override
+    public byte[] getAudio(String audioId) {
+        AgentChatAudioEntity entity = getById(audioId);
+        return entity != null ? entity.getAudio() : null;
+    }
 }

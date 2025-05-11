@@ -19,4 +19,12 @@ public interface AgentChatAudioService extends IService<AgentChatAudioEntity> {
      * @return 音频ID
      */
     String saveAudio(byte[] audioData);
+
+    /**
+     * 获取音频数据
+     *
+     * @param audioId 音频ID
+     * @return 音频数据
+     */
+    byte[] getAudio(String audioId);
 }

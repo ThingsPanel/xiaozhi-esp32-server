@@ -96,7 +96,7 @@ public class SysDictDataController {
 
     @GetMapping("/type/{dictType}")
     @Operation(summary = "获取字典数据列表")
-    @RequiresPermissions("sys:role:superAdmin")
+    @RequiresPermissions("sys:role:normal")
     public Result<List<SysDictDataItem>> getDictDataByType(@PathVariable("dictType") String dictType) {
         List<SysDictDataItem> list = sysDictDataService.getDictDataByType(dictType);
         return new Result<List<SysDictDataItem>>().ok(list);
