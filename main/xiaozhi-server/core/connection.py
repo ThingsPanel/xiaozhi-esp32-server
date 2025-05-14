@@ -12,6 +12,7 @@ import traceback
 import threading
 import websockets
 from typing import Dict, Any
+from core.utils.tp import update_device_online_status
 from plugins_func.loadplugins import auto_import_modules
 from config.logger import setup_logging
 from core.utils.dialogue import Message, Dialogue
@@ -188,7 +189,8 @@ class ConnectionHandler:
             # 更新设备状态为在线
             device_id = self.headers.get("device-id")
             if device_id:
-                self.manage_api.update_device_status(device_id, 1)
+                # 调用tp.py中的方法update_device_online_status来更新设备状态
+                update_device_online_status(device_id, True)
 
             # 启动超时检查任务
             self.timeout_task = asyncio.create_task(self._check_timeout())
@@ -219,7 +221,7 @@ class ConnectionHandler:
                     await self._route_message(message)
             except websockets.exceptions.ConnectionClosed:
                 if device_id:
-                    self.manage_api.update_device_status(device_id, 0)
+                    update_device_online_status(device_id, False)
                 self.logger.bind(tag=TAG).info("客户端断开连接")
 
         except AuthenticationError as e:
@@ -243,7 +245,7 @@ class ConnectionHandler:
             # 更新设备状态为离线
             device_id = self.headers.get("device-id")
             if device_id:
-                self.manage_api.update_device_status(device_id, 0)
+                update_device_online_status(device_id, False)
             await self.close(ws)
 
     async def reset_timeout(self):

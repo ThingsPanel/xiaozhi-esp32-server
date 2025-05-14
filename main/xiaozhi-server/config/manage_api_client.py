@@ -116,46 +116,7 @@ class ManageApiClient:
                 else:
                     # 不重试，直接抛出异常
                     raise
-
-    @classmethod
-    def update_device_status(cls, device_id: str, status: int) -> bool:
-        """更新设备状态
-        
-        Args:
-            device_id: 设备ID
-            status: 设备状态，1表示在线，0表示离线
-            
-        Returns:
-            bool: 更新是否成功
-        """
-        try:
-            response = cls._client.post(
-                "/device/status",
-                json={
-                    "secret": ManageApiClient._secret,
-                    "device_id": device_id,
-                    "status": status
-                }
-            )
-            response.raise_for_status()
-            result = response.json()
-            
-            if result.get("code") != 0:
-                print(
-                    f"更新设备状态失败: {result.get('msg')}"
-                )
-                return False
-            
-            print(
-                f"设备 {device_id} 状态已更新为 {status}"
-            )
-            return True
-        except Exception as e:
-            print(
-                f"更新设备状态失败: {result.get('msg')}"
-            )
-            return False
-
+                
     @classmethod
     def safe_close(cls):
         """安全关闭连接池"""
