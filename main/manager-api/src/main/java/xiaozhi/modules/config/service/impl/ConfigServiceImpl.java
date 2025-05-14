@@ -9,6 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 import lombok.AllArgsConstructor;
+import xiaozhi.common.constant.Constant;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
 import xiaozhi.common.redis.RedisKeys;
@@ -64,6 +65,7 @@ public class ConfigServiceImpl implements ConfigService {
                 null,
                 null,
                 null,
+                null,
                 agent.getVadModelId(),
                 agent.getAsrModelId(),
                 null,
@@ -108,6 +110,17 @@ public class ConfigServiceImpl implements ConfigService {
         // 获取单台设备每天最多输出字数
         String deviceMaxOutputSize = sysParamsService.getValue("device_max_output_size", true);
         result.put("device_max_output_size", deviceMaxOutputSize);
+
+        // 获取聊天记录配置
+        Integer chatHistoryConf = agent.getChatHistoryConf();
+        if (agent.getMemModelId() != null && agent.getMemModelId().equals(Constant.MEMORY_NO_MEM)) {
+            chatHistoryConf = Constant.ChatHistoryConfEnum.IGNORE.getCode();
+        } else if (agent.getMemModelId() != null
+                && !agent.getMemModelId().equals(Constant.MEMORY_NO_MEM)
+                && agent.getChatHistoryConf() == null) {
+            chatHistoryConf = Constant.ChatHistoryConfEnum.RECORD_TEXT_AUDIO.getCode();
+        }
+        result.put("chat_history_conf", chatHistoryConf);
         // 如果客户端已实例化模型，则不返回
         String alreadySelectedVadModelId = (String) selectedModule.get("VAD");
         if (alreadySelectedVadModelId != null && alreadySelectedVadModelId.equals(agent.getVadModelId())) {
@@ -122,6 +135,7 @@ public class ConfigServiceImpl implements ConfigService {
         buildModuleConfig(
                 agent.getAgentName(),
                 agent.getSystemPrompt(),
+                agent.getSummaryMemory(),
                 voice,
                 agent.getVadModelId(),
                 agent.getAsrModelId(),
@@ -222,6 +236,7 @@ public class ConfigServiceImpl implements ConfigService {
     private void buildModuleConfig(
             String assistantName,
             String prompt,
+            String summaryMemory,
             String voice,
             String vadModelId,
             String asrModelId,
@@ -282,5 +297,6 @@ public class ConfigServiceImpl implements ConfigService {
             prompt = prompt.replace("{{assistant_name}}", StringUtils.isBlank(assistantName) ? "小智" : assistantName);
         }
         result.put("prompt", prompt);
+        result.put("summaryMemory", summaryMemory);
     }
 }

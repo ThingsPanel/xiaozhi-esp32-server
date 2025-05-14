@@ -34,7 +34,7 @@ from core.mcp.manager import MCPManager
 from config.config_loader import get_private_config_from_api
 from config.manage_api_client import DeviceNotFoundException, DeviceBindException, ManageApiClient
 from core.utils.output_counter import add_device_output
-from core.handle.ttsReportHandle import enqueue_tts_report, report_tts
+from core.handle.reportHandle import enqueue_tts_report, report
 
 TAG = __name__
 
@@ -82,6 +82,7 @@ class ConnectionHandler:
         self.prompt = None
         self.welcome_msg = None
         self.max_output_size = 0
+        self.chat_history_conf = 0
 
         # 客户端状态相关
         self.client_abort = False
@@ -95,8 +96,11 @@ class ConnectionHandler:
         self.executor = ThreadPoolExecutor(max_workers=10)
 
         # 上报线程
-        self.tts_report_queue = queue.Queue()
-        self.tts_report_thread = None
+        self.report_queue = queue.Queue()
+        self.report_thread = None
+        # TODO(haotian): 2025/5/12 可以通过修改此处，调节asr的上报和tts的上报
+        self.report_asr_enable = self.read_config_from_api
+        self.report_tts_enable = self.read_config_from_api
 
         # 依赖的组件
         self.vad = None
@@ -238,15 +242,29 @@ class ConnectionHandler:
         """保存记忆并关闭连接"""
         try:
             if self.memory:
-                await self.memory.save_memory(self.dialogue.dialogue)
+                # 使用线程池异步保存记忆
+                def save_memory_task():
+                    try:
+                        # 创建新事件循环（避免与主循环冲突）
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(self.memory.save_memory(self.dialogue.dialogue))
+                    except Exception as e:
+                        self.logger.bind(tag=TAG).error(f"保存记忆失败: {e}")
+                    finally:
+                        loop.close()
+
+                # 启动线程保存记忆，不等待完成
+                threading.Thread(target=save_memory_task, daemon=True).start()
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"保存记忆失败: {e}")
         finally:
+            # 立即关闭连接，不等待记忆保存完成
+            await self.close(ws)
             # 更新设备状态为离线
             device_id = self.headers.get("device-id")
             if device_id:
                 update_device_online_status(device_id, False)
-            await self.close(ws)
 
     async def reset_timeout(self):
         """重置超时计时器"""
@@ -271,11 +289,15 @@ class ConnectionHandler:
             self.logger.bind(tag=TAG).info("收到服务器重启指令，准备执行...")
 
             # 发送确认响应
-            await self.websocket.send(json.dumps({
-                "type": "server_response",
-                "status": "success",
-                "message": "服务器重启中..."
-            }))
+            await self.websocket.send(
+                json.dumps(
+                    {
+                        "type": "server_response",
+                        "status": "success",
+                        "message": "服务器重启中...",
+                    }
+                )
+            )
 
             # 异步执行重启操作
             def restart_server():
@@ -287,7 +309,7 @@ class ConnectionHandler:
                     stdin=sys.stdin,
                     stdout=sys.stdout,
                     stderr=sys.stderr,
-                    start_new_session=True
+                    start_new_session=True,
                 )
                 os._exit(0)
 
@@ -296,11 +318,15 @@ class ConnectionHandler:
 
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"重启失败: {str(e)}")
-            await self.websocket.send(json.dumps({
-                "type": "server_response",
-                "status": "error",
-                "message": f"Restart failed: {str(e)}"
-            }))
+            await self.websocket.send(
+                json.dumps(
+                    {
+                        "type": "server_response",
+                        "status": "error",
+                        "message": f"Restart failed: {str(e)}",
+                    }
+                )
+            )
 
     def _initialize_components(self):
         """初始化组件"""
@@ -327,11 +353,13 @@ class ConnectionHandler:
         """初始化ASR和TTS上报线程"""
         if not self.read_config_from_api or self.need_bind:
             return
-        if self.tts_report_thread is None or not self.tts_report_thread.is_alive():
-            self.tts_report_thread = threading.Thread(
-                target=self._tts_report_worker, daemon=True
+        if self.chat_history_conf == 0:
+            return
+        if self.report_thread is None or not self.report_thread.is_alive():
+            self.report_thread = threading.Thread(
+                target=self._report_worker, daemon=True
             )
-            self.tts_report_thread.start()
+            self.report_thread.start()
             self.logger.bind(tag=TAG).info("TTS上报线程已启动")
 
     def _initialize_private_config(self):
@@ -398,9 +426,12 @@ class ConnectionHandler:
             ]["Intent"]
         if private_config.get("prompt", None) is not None:
             self.config["prompt"] = private_config["prompt"]
+        if private_config.get("summaryMemory", None) is not None:
+            self.config["summaryMemory"] = private_config["summaryMemory"]
         if private_config.get("device_max_output_size", None) is not None:
             self.max_output_size = int(private_config["device_max_output_size"])
-
+        if private_config.get("chat_history_conf", None) is not None:
+            self.chat_history_conf = int(private_config["chat_history_conf"])
         try:
             modules = initialize_modules(
                 self.logger,
@@ -430,7 +461,12 @@ class ConnectionHandler:
 
     def _initialize_memory(self):
         """初始化记忆模块"""
-        self.memory.init_memory(self.device_id, self.llm)
+        self.memory.init_memory(
+            self.device_id,
+            self.llm,
+            self.config["summaryMemory"],
+            not self.read_config_from_api,
+        )
 
     def _initialize_intent(self):
         self.intent_type = self.config["Intent"][
@@ -859,7 +895,7 @@ class ConnectionHandler:
                 if future is None:
                     continue
                 text = None
-                opus_datas, tts_file = [], None
+                audio_datas, tts_file = [], None
                 try:
                     self.logger.bind(tag=TAG).debug("正在处理TTS任务...")
                     tts_timeout = int(self.config.get("tts_timeout", 10))
@@ -881,8 +917,8 @@ class ConnectionHandler:
                                 audio_datas, _ = self.tts.audio_to_pcm_data(tts_file)
                             else:
                                 audio_datas, _ = self.tts.audio_to_opus_data(tts_file)
-                            # 在这里上报TTS数据（使用文件路径）
-                            enqueue_tts_report(self, 2, text, audio_datas)
+                            # 在这里上报TTS数据
+                            enqueue_tts_report(self, text, audio_datas)
                         else:
                             self.logger.bind(tag=TAG).error(
                                 f"TTS出错：文件不存在{tts_file}"
@@ -938,13 +974,12 @@ class ConnectionHandler:
                     f"audio_play_priority priority_thread: {text} {e}"
                 )
 
-    def _tts_report_worker(self):
-        """TTS上报工作线程"""
-
+    def _report_worker(self):
+        """聊天记录上报工作线程"""
         while not self.stop_event.is_set():
             try:
                 # 从队列获取数据，设置超时以便定期检查停止事件
-                item = self.tts_report_queue.get(timeout=1)
+                item = self.report_queue.get(timeout=1)
                 if item is None:  # 检测毒丸对象
                     break
 
@@ -952,18 +987,18 @@ class ConnectionHandler:
 
                 try:
                     # 执行上报（传入二进制数据）
-                    report_tts(self, type, text, audio_data)
+                    report(self, type, text, audio_data)
                 except Exception as e:
-                    self.logger.bind(tag=TAG).error(f"TTS上报线程异常: {e}")
+                    self.logger.bind(tag=TAG).error(f"聊天记录上报线程异常: {e}")
                 finally:
                     # 标记任务完成
-                    self.tts_report_queue.task_done()
+                    self.report_queue.task_done()
             except queue.Empty:
                 continue
             except Exception as e:
-                self.logger.bind(tag=TAG).error(f"TTS上报工作线程异常: {e}")
+                self.logger.bind(tag=TAG).error(f"聊天记录上报工作线程异常: {e}")
 
-        self.logger.bind(tag=TAG).info("TTS上报线程已退出")
+        self.logger.bind(tag=TAG).info("聊天记录上报线程已退出")
 
     def speak_and_play(self, text, text_index=0):
         if text is None or len(text) <= 0:
@@ -992,6 +1027,7 @@ class ConnectionHandler:
 
     async def close(self, ws=None):
         """资源清理方法"""
+
         # 取消超时任务
         if self.timeout_task:
             self.timeout_task.cancel()
@@ -1001,43 +1037,42 @@ class ConnectionHandler:
         if hasattr(self, "mcp_manager") and self.mcp_manager:
             await self.mcp_manager.cleanup_all()
 
-        # 触发停止事件并清理资源
+        # 触发停止事件
         if self.stop_event:
             self.stop_event.set()
-
-        # 立即关闭线程池
-        if self.executor:
-            self.executor.shutdown(wait=False, cancel_futures=True)
-            self.executor = None
-
-        # 添加毒丸对象到上报队列确保线程退出
-        self.tts_report_queue.put(None)
 
         # 清空任务队列
         self.clear_queues()
 
+        # 关闭WebSocket连接
         if ws:
             await ws.close()
         elif self.websocket:
             await self.websocket.close()
+
+        # 最后关闭线程池（避免阻塞）
+        if self.executor:
+            self.executor.shutdown(wait=False)
+            self.executor = None
+
         self.logger.bind(tag=TAG).info("连接资源已释放")
 
     def clear_queues(self):
-        # 清空所有任务队列
+        """清空所有任务队列"""
         self.logger.bind(tag=TAG).debug(
             f"开始清理: TTS队列大小={self.tts_queue.qsize()}, 音频队列大小={self.audio_play_queue.qsize()}"
         )
+
+        # 使用非阻塞方式清空队列
         for q in [self.tts_queue, self.audio_play_queue]:
             if not q:
                 continue
-            while not q.empty():
+            while True:
                 try:
                     q.get_nowait()
                 except queue.Empty:
-                    continue
-            q.queue.clear()
-            # 添加毒丸信号到队列，确保线程退出
-            # q.queue.put(None)
+                    break
+
         self.logger.bind(tag=TAG).debug(
             f"清理结束: TTS队列大小={self.tts_queue.qsize()}, 音频队列大小={self.audio_play_queue.qsize()}"
         )

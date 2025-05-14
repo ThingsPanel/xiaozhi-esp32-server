@@ -145,6 +145,20 @@ def get_agent_models(
     )
 
 
+def save_mem_local_short(mac_address: str, short_momery: str) -> Optional[Dict]:
+    try:
+        return ManageApiClient._instance._execute_request(
+            "PUT",
+            f"/agent/saveMemory/" + mac_address,
+            json={
+                "summaryMemory": short_momery,
+            },
+        )
+    except Exception as e:
+        print(f"存储短期记忆到服务器失败: {e}")
+        return None
+
+
 def report(
     mac_address: str, session_id: str, chat_type: int, content: str, audio
 ) -> Optional[Dict]:

@@ -28,11 +28,17 @@
       SELECT audio_id 
       FROM ai_agent_chat_history 
       WHERE agent_id = #{agentId}
-    );
+    )
   </delete>
+  
+  <update id="deleteAudioIdByAgentId">
+    UPDATE ai_agent_chat_history
+    SET audio_id = NULL
+    WHERE agent_id = #{agentId}
+  </update>
 
   <delete id="deleteHistoryByAgentId">
     DELETE FROM ai_agent_chat_history 
-    WHERE agent_id = #{agentId};
+    WHERE agent_id = #{agentId}
   </delete>
 </mapper>

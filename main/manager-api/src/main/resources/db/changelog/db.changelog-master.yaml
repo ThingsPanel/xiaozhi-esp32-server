@@ -114,3 +114,31 @@ databaseChangeLog:
         - sqlFile:
             encoding: utf8
             path: classpath:db/changelog/202505091409.sql
+  - changeSet:
+      id: 202505091555
+      author: whosmyqueen
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202505091555.sql
+  - changeSet:
+      id: 202505111914
+      author: hrz
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202505111914.sql
+  - changeSet:
+      id: 202505122348
+      author: ljwwd2
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202505122348.sql
+  - changeSet:
+      id: 202505142037
+      author: hrz
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202505142037.sql

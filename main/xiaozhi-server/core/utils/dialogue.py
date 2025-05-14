@@ -75,7 +75,8 @@ class Dialogue:
 
         if system_message:
             enhanced_system_prompt = (
-                f"{system_message.content}\n\n" f"相关记忆：\n{memory_str}"
+                f"{system_message.content}\n\n"
+                f"以下是用户的历史记忆：\n```\n{memory_str}\n```"
             )
             dialogue.append({"role": "system", "content": enhanced_system_prompt})
 

@@ -8,7 +8,7 @@ TAG = __name__
 
 
 class MemoryProvider(MemoryProviderBase):
-    def __init__(self, config):
+    def __init__(self, config, summary_memory=None):
         super().__init__(config)
         self.api_key = config.get("api_key", "")
         self.api_version = config.get("api_version", "v1.1")

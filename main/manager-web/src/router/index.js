@@ -90,7 +90,14 @@ const routes = [
     component: function () {
       return import('../views/DictManagement.vue')
     }
-  }
+  },
+  {
+    path: '/provider-management',
+    name: 'ProviderManagement',
+    component: function () {
+      return import('../views/ProviderManagement.vue')
+    }
+  },
 ]
 const router = new VueRouter({
   base: process.env.VUE_APP_PUBLIC_PATH || '/',

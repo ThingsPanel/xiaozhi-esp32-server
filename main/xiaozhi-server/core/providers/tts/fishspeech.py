@@ -85,16 +85,22 @@ class TTSProvider(TTSProviderBase):
     def __init__(self, config, delete_audio_file):
         super().__init__(config, delete_audio_file)
 
-        self.reference_id = config.get("reference_id")
+        self.reference_id = (
+            None if not config.get("reference_id") else config.get("reference_id")
+        )
         self.reference_audio = parse_string_to_list(config.get("reference_audio"))
         self.reference_text = parse_string_to_list(config.get("reference_text"))
-        self.format = config.get("format", "wav")
+        self.format = config.get("response_format", "wav")
 
         self.api_key = config.get("api_key", "YOUR_API_KEY")
         have_key = check_model_key("FishSpeech TTS", self.api_key)
         if not have_key:
             return
-        self.normalize = config.get("normalize", True)
+        self.normalize = str(config.get("normalize", True)).lower() in (
+            "true",
+            "1",
+            "yes",
+        )
 
         # 处理空字符串的情况
         channels = config.get("channels", "1")

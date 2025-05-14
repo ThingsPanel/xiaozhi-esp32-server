@@ -39,7 +39,9 @@ public interface AgentChatHistoryService extends IService<AgentChatHistoryEntity
     /**
      * 根据智能体ID删除聊天记录
      *
-     * @param agentId 智能体ID
+     * @param agentId     智能体ID
+     * @param deleteAudio 是否删除音频
+     * @param deleteText  是否删除文本
      */
-    void deleteByAgentId(String agentId);
+    void deleteByAgentId(String agentId, Boolean deleteAudio, Boolean deleteText);
 }

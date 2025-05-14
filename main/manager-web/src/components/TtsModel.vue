@@ -336,6 +336,14 @@ export default {
     },
 
     saveEdit(row) {
+      if (!row.voiceCode || !row.voiceName || !row.languageType) {
+        this.$message.error({
+          message: '音色编码、音色名称和语言类型不能为空',
+          showClose: true
+        });
+        return;
+      }
+
       try {
         const params = {
           id: row.id,
@@ -408,6 +416,12 @@ export default {
     },
 
     addNew() {
+      const hasEditing = this.ttsModels.some(row => row.editing);
+      if (hasEditing) {
+        this.$message.warning('请先完成当前编辑再新增');
+        return;
+      }
+
       const maxSort = this.ttsModels.length > 0
           ? Math.max(...this.ttsModels.map(item => Number(item.sort) || 0))
           : 0;

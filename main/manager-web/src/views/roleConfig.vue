@@ -15,9 +15,17 @@
                 <img loading="lazy" src="@/assets/home/setting-user.png" alt="">
               </div>
               <span class="header-title">{{ form.agentName }}</span>
-              <button class="custom-close-btn" @click="goToHome">
-                ×
-              </button>
+              <div class="header-actions">
+                <div class="hint-text">
+                  <img loading="lazy" src="@/assets/home/info.png" alt="">
+                  <span>保存配置后，需要重启设备，新的配置才会生效。</span>
+                </div>
+                <el-button type="primary" class="save-btn" @click="saveConfig">保存配置</el-button>
+                <el-button class="reset-btn" @click="resetConfig">重置</el-button>
+                <button class="custom-close-btn" @click="goToHome">
+                  ×
+                </button>
+              </div>
             </div>
             <div class="divider"></div>
 
@@ -26,7 +34,7 @@
                 <div class="form-grid">
                   <div class="form-column">
                     <el-form-item label="助手昵称：">
-                      <el-input v-model="form.agentName" class="form-input" />
+                      <el-input v-model="form.agentName" class="form-input" maxlength="10" />
                     </el-form-item>
                     <el-form-item label="角色模版：">
                       <div class="template-container">
@@ -37,8 +45,14 @@
                       </div>
                     </el-form-item>
                     <el-form-item label="角色介绍：">
-                      <el-input type="textarea" rows="12" resize="none" placeholder="请输入内容" v-model="form.systemPrompt"
+                      <el-input type="textarea" rows="9" resize="none" placeholder="请输入内容" v-model="form.systemPrompt"
                         maxlength="2000" show-word-limit class="form-textarea" />
+                    </el-form-item>
+
+                    <el-form-item label="记忆：">
+                      <el-input type="textarea" rows="6" resize="none" v-model="form.summaryMemory" maxlength="2000"
+                        show-word-limit class="form-textarea"
+                        :disabled="form.model.memModelId !== 'Memory_mem_local_short'" />
                     </el-form-item>
                     <el-form-item label="语言编码：" style="display: none;">
                       <el-input v-model="form.langCode" placeholder="请输入语言编码，如：zh_CN" maxlength="10" show-word-limit
@@ -48,24 +62,48 @@
                       <el-input v-model="form.language" placeholder="请输入交互语种，如：中文" maxlength="10" show-word-limit
                         class="form-input" />
                     </el-form-item>
-                    <div class="action-bar">
-                      <el-button type="primary" class="save-btn" @click="saveConfig">保存配置</el-button>
-                      <el-button class="reset-btn" @click="resetConfig">重置</el-button>
-                      <div class="hint-text">
-                        <img loading="lazy" src="@/assets/home/red-info.png" alt="">
-                        <span>保存配置后，需要重启设备，新的配置才会生效。</span>
-                      </div>
-                    </div>
                   </div>
                   <div class="form-column">
                     <el-form-item v-for="(model, index) in models" :key="`model-${index}`" :label="model.label"
                       class="model-item">
-                      <el-select v-model="form.model[model.key]" filterable placeholder="请选择" class="form-select">
-                        <el-option v-for="(item, optionIndex) in modelOptions[model.type]"
-                          :key="`option-${index}-${optionIndex}`" :label="item.label" :value="item.value" />
-                      </el-select>
+                      <div class="model-select-wrapper">
+                        <el-select v-model="form.model[model.key]" filterable placeholder="请选择" class="form-select"
+                          @change="handleModelChange(model.type, $event)">
+                          <el-option v-for="(item, optionIndex) in modelOptions[model.type]"
+                            :key="`option-${index}-${optionIndex}`" :label="item.label" :value="item.value" />
+                        </el-select>
+                        <div v-if="showFunctionIcons(model.type)" class="function-icons">
+                          <el-tooltip v-for="func in currentFunctions" :key="func.name" effect="dark" placement="top"
+                            popper-class="custom-tooltip">
+                            <div slot="content">
+                              <div><strong>功能名称:</strong> {{ func.name }}</div>
+                              <div v-if="Object.keys(func.params).length > 0">
+                                <strong>参数配置:</strong>
+                                <div v-for="(value, key) in func.params" :key="key">
+                                  {{ key }}: {{ value }}
+                                </div>
+                              </div>
+                              <div v-else>无参数配置</div>
+                            </div>
+                            <div class="icon-dot" :style="{ backgroundColor: getFunctionColor(func.name) }">
+                              {{ func.name.charAt(0) }}
+                            </div>
+                          </el-tooltip>
+                          <el-button class="edit-function-btn" @click="showFunctionDialog = true"
+                            :class="{ 'active-btn': showFunctionDialog }">
+                            编辑功能
+                          </el-button>
+                        </div>
+                        <div v-if="model.type === 'Memory' && form.model.memModelId !== 'Memory_nomem'"
+                          class="chat-history-options">
+                          <el-radio-group v-model="form.chatHistoryConf" @change="updateChatHistoryConf">
+                            <el-radio-button :label="1">上报文字</el-radio-button>
+                            <el-radio-button :label="2">上报文字+语音</el-radio-button>
+                          </el-radio-group>
+                        </div>
+                      </div>
                     </el-form-item>
-                    <el-form-item label="角色音色：">
+                    <el-form-item label="角色音色">
                       <el-select v-model="form.ttsVoiceId" placeholder="请选择" class="form-select">
                         <el-option v-for="(item, index) in voiceOptions" :key="`voice-${index}`" :label="item.label"
                           :value="item.value" />
@@ -75,28 +113,33 @@
                 </div>
               </div>
             </el-form>
-
           </el-card>
         </div>
       </div>
     </div>
+
+    <function-dialog v-model="showFunctionDialog" :functions="currentFunctions"
+      @update-functions="handleUpdateFunctions" @dialog-closed="handleDialogClosed" />
   </div>
 </template>
 
 <script>
 import Api from '@/apis/api';
+import FunctionDialog from "@/components/FunctionDialog.vue";
 import HeaderBar from "@/components/HeaderBar.vue";
 
 export default {
   name: 'RoleConfigPage',
-  components: { HeaderBar },
+  components: { HeaderBar, FunctionDialog },
   data() {
     return {
       form: {
         agentCode: "",
         agentName: "",
         ttsVoiceId: "",
+        chatHistoryConf: 0,
         systemPrompt: "",
+        summaryMemory: "",
         langCode: "",
         language: "",
         sort: "",
@@ -121,6 +164,18 @@ export default {
       templates: [],
       loadingTemplate: false,
       voiceOptions: [],
+      showFunctionDialog: false,
+      currentFunctions: [],
+      functionColorMap: [
+        '#FF6B6B', '#4ECDC4', '#45B7D1',
+        '#96CEB4', '#FFEEAD', '#D4A5A5', '#A2836E'
+      ],
+      allFunctions: [
+        { name: '天气', params: {} },
+        { name: '新闻', params: {} },
+        { name: '工具', params: {} },
+        { name: '退出', params: {} }
+      ],
     }
   },
   methods: {
@@ -136,12 +191,15 @@ export default {
         llmModelId: this.form.model.llmModelId,
         ttsModelId: this.form.model.ttsModelId,
         ttsVoiceId: this.form.ttsVoiceId,
+        chatHistoryConf: this.form.chatHistoryConf,
         memModelId: this.form.model.memModelId,
         intentModelId: this.form.model.intentModelId,
         systemPrompt: this.form.systemPrompt,
+        summaryMemory: this.form.summaryMemory,
         langCode: this.form.langCode,
         language: this.form.language,
-        sort: this.form.sort
+        sort: this.form.sort,
+        functions: this.currentFunctions
       };
       Api.agent.updateAgentConfig(this.$route.query.agentId, configData, ({ data }) => {
         if (data.code === 0) {
@@ -167,7 +225,9 @@ export default {
           agentCode: "",
           agentName: "",
           ttsVoiceId: "",
+          chatHistoryConf: 0,
           systemPrompt: "",
+          summaryMemory: "",
           langCode: "",
           language: "",
           sort: "",
@@ -180,12 +240,12 @@ export default {
             intentModelId: "",
           }
         }
+        this.currentFunctions = [];
         this.$message.success({
           message: '配置已重置',
           showClose: true
         })
-      }).catch(() => {
-      });
+      }).catch(() => { });
     },
     fetchTemplates() {
       Api.agent.getAgentTemplate(({ data }) => {
@@ -220,7 +280,9 @@ export default {
         ...this.form,
         agentName: templateData.agentName || this.form.agentName,
         ttsVoiceId: templateData.ttsVoiceId || this.form.ttsVoiceId,
+        chatHistoryConf: templateData.chatHistoryConf || this.form.chatHistoryConf,
         systemPrompt: templateData.systemPrompt || this.form.systemPrompt,
+        summaryMemory: templateData.summaryMemory || this.form.summaryMemory,
         langCode: templateData.langCode || this.form.langCode,
         model: {
           ttsModelId: templateData.ttsModelId || this.form.model.ttsModelId,
@@ -247,6 +309,7 @@ export default {
               intentModelId: data.data.intentModelId
             }
           };
+          this.currentFunctions = data.data.functions || [];
         } else {
           this.$message.error(data.msg || '获取配置失败');
         }
@@ -281,7 +344,56 @@ export default {
           this.voiceOptions = [];
         }
       });
-    }
+    },
+    getFunctionColor(name) {
+      const hash = [...name].reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      return this.functionColorMap[hash % 7];
+    },
+    showFunctionIcons(type) {
+      // TODO 暂时不放出来
+      return false;
+      // return type === 'Intent' &&
+      //   this.form.model.intentModelId !== 'Intent_nointent';
+    },
+    handleModelChange(type, value) {
+      if (type === 'Intent' && value !== 'Intent_nointent') {
+        this.fetchFunctionList();
+      }
+      if (type === 'Memory' && value === 'Memory_nomem') {
+        this.form.chatHistoryConf = 0;
+      }
+      if (type === 'Memory' && value !== 'Memory_nomem' && (this.form.chatHistoryConf === 0 || this.form.chatHistoryConf === null)) {
+        this.form.chatHistoryConf = 2;
+      }
+    },
+    fetchFunctionList() {
+      // 使用假数据代替API调用
+      return new Promise(resolve => {
+        setTimeout(() => {
+          this.currentFunctions = [
+            { name: '天气', params: { city: '北京' } },
+            { name: '新闻', params: { type: '科技' } }
+          ];
+          resolve();
+        }, 500);
+      });
+    },
+    handleUpdateFunctions(selected) {
+      this.currentFunctions = selected;
+      console.log('保存的功能列表:', selected);
+      this.$message.success('功能配置已保存');
+    },
+    handleDialogClosed(saved) {
+      if (!saved) {
+        // 如果未保存，恢复原始功能列表
+        this.currentFunctions = JSON.parse(JSON.stringify(this.originalFunctions));
+      }
+    },
+    updateChatHistoryConf() {
+      if (this.form.model.memModelId === 'Memory_nomem') {
+        this.form.chatHistoryConf = 0;
+      }
+    },
   },
   watch: {
     'form.model.ttsModelId': {
@@ -308,6 +420,9 @@ export default {
     const agentId = this.$route.query.agentId;
     if (agentId) {
       this.fetchAgentConfig(agentId);
+      this.fetchFunctionList().then(() => {
+        this.originalFunctions = JSON.parse(JSON.stringify(this.currentFunctions));
+      });
     }
     this.fetchModelOptions();
     this.fetchTemplates();
@@ -466,51 +581,35 @@ export default {
   background-color: #d0d8ff;
 }
 
-.action-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 2vh;
-  align-items: center;
-}
-
-.action-bar {
-  .el-button.save-btn {
-    background: #5778ff;
-    color: white;
-    border: none;
-    border-radius: 18px;
-    padding: 10px 20px;
-    width: 100px;
-    height: 35px;
-    font-size: 14px;
-  }
-
-  .el-button.reset-btn {
-    background: #e6ebff;
-    color: #5778ff;
-    border: 1px solid #adbdff;
-    border-radius: 18px;
-    padding: 10px 20px;
-  }
-}
-
-.hint-text {
+.model-select-wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #979db1;
-  font-size: 11px;
-  margin-left: 16px;
+  width: 100%;
 }
 
-.hint-text img {
-  width: 19px;
-  height: 19px;
+.function-icons {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  padding-left: 10px;
+}
+
+.icon-dot {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+  margin-right: 8px;
+  position: relative;
 }
 
 ::v-deep .el-form-item__label {
-  font-size: 10px !important;
+  font-size: 12px !important;
   color: #3d4566 !important;
   font-weight: 400;
   line-height: 22px;
@@ -550,5 +649,74 @@ export default {
 .custom-close-btn:hover {
   color: #409EFF;
   border-color: #409EFF;
+}
+
+.edit-function-btn {
+  background: #e6ebff;
+  color: #5778ff;
+  border: 1px solid #adbdff;
+  border-radius: 18px;
+  padding: 10px 20px;
+  transition: all 0.3s;
+}
+
+.edit-function-btn.active-btn {
+  background: #5778ff;
+  color: white;
+}
+
+.chat-history-options {
+  display: flex;
+  gap: 10px;
+  min-width: 250px;
+  justify-content: flex-end;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.header-actions .hint-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #979db1;
+  font-size: 12px;
+  margin-right: 8px;
+}
+
+.header-actions .hint-text img {
+  width: 16px;
+  height: 16px;
+}
+
+.header-actions .save-btn {
+  background: #5778ff;
+  color: white;
+  border: none;
+  border-radius: 18px;
+  padding: 8px 16px;
+  height: 32px;
+  font-size: 14px;
+}
+
+.header-actions .reset-btn {
+  background: #e6ebff;
+  color: #5778ff;
+  border: 1px solid #adbdff;
+  border-radius: 18px;
+  padding: 8px 16px;
+  height: 32px;
+}
+
+.header-actions .custom-close-btn {
+  position: static;
+  transform: none;
+  width: 32px;
+  height: 32px;
+  margin-left: 8px;
 }
 </style>

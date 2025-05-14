@@ -4,7 +4,7 @@ from core.utils.util import remove_punctuation_and_length
 from core.handle.sendAudioHandle import send_stt_message
 from core.handle.intentHandler import handle_user_intent
 from core.utils.output_counter import check_device_output_limit
-from core.handle.ttsReportHandle import enqueue_tts_report
+from core.handle.reportHandle import enqueue_asr_report
 from core.utils.util import audio_to_data
 
 TAG = __name__
@@ -44,7 +44,7 @@ async def handleAudioMessage(conn, audio):
             text_len, _ = remove_punctuation_and_length(text)
             if text_len > 0:
                 # 使用自定义模块进行上报
-                enqueue_tts_report(conn, 1, text, copy.deepcopy(conn.asr_audio))
+                enqueue_asr_report(conn, text, copy.deepcopy(conn.asr_audio))
 
                 await startToChat(conn, text)
             else:
@@ -98,9 +98,14 @@ async def no_voice_close_connect(conn):
             conn.close_after_chat = True
             conn.client_abort = False
             conn.asr_server_receive = False
-            prompt = (
-                "请你以“时间过得真快”未来头，用富有感情、依依不舍的话来结束这场对话吧。"
-            )
+            end_prompt = conn.config.get("end_prompt", {})
+            if end_prompt and end_prompt.get("enable", True) is False:
+                conn.logger.bind(tag=TAG).info("结束对话，无需发送结束提示语")
+                await conn.close()
+                return
+            prompt = end_prompt.get("prompt")
+            if not prompt:
+                prompt = "请你以“时间过得真快”未来头，用富有感情、依依不舍的话来结束这场对话吧。！"
             await startToChat(conn, prompt)
 
 

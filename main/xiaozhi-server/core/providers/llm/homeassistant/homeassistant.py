@@ -66,7 +66,6 @@ class LLMProvider(LLMProviderBase):
             logger.bind(tag=TAG).error(f"生成响应时出错: {e}")
 
     def response_with_functions(self, session_id, dialogue, functions=None):
-        logger.bind(tag=TAG).info(
-            f"homeassistant不支持（function call），建议使用意图识别使用:nointent"
+        logger.bind(tag=TAG).error(
+            f"homeassistant不支持（function call），建议使用其他意图识别"
         )
-        return self.response(session_id, dialogue)

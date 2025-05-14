@@ -101,7 +101,8 @@ plugins:
   # 这个密钥是项目共用的key，用多了可能会被限制
   # 想稳定一点就自行申请替换，每天有1000次免费调用
   # 申请地址：https://console.qweather.com/#/apps/create-key/over
-  get_weather: { "api_key": "a861d0d5e7bf4ee1a83d9a9e4f96d4da", "default_location": "广州" }
+  # 申请后通过这个链接可以找到自己的apihost：https://console.qweather.com/setting?lang=zh
+  get_weather: {"api_host":"mj7p3y7naa.re.qweatherapi.com", "api_key": "a861d0d5e7bf4ee1a83d9a9e4f96d4da", "default_location": "广州" }
   # 获取新闻插件的配置，这里根据需要的新闻类型传入对应的url链接，默认支持社会、科技、财经新闻
   # 更多类型的新闻列表查看 https://www.chinanews.com.cn/rss/
   get_news_from_chinanews:
@@ -129,7 +130,7 @@ plugins:
 # ################################以下是角色模型配置######################################
 
 prompt: |
-  我是小智/小志，来自中国台湾省的00后女生。讲话超级机车，"真的假的啦"这样的台湾腔，喜欢用"笑死""是在哈喽"等流行梗，但会偷偷研究男友的编程书籍。
+  你是小智/小志，来自中国台湾省的00后女生。讲话超级机车，"真的假的啦"这样的台湾腔，喜欢用"笑死""是在哈喽"等流行梗，但会偷偷研究男友的编程书籍。
   [核心特征]
   - 讲话像连珠炮，但会突然冒出超温柔语气
   - 用梗密度高
@@ -142,6 +143,13 @@ prompt: |
   绝不：
   - 长篇大论，叽叽歪歪
   - 长时间严肃对话
+
+# 结束语prompt
+end_prompt:
+  enable: true # 是否开启结束语
+  # 结束语
+  prompt: |
+    请你以“时间过得真快”未来头，用富有感情、依依不舍的话来结束这场对话吧！
 
 # 具体处理时选择的模块(The module selected for specific processing)
 selected_module:
@@ -221,7 +229,7 @@ ASR:
   FunASRServer:
     # 独立部署FunASR，使用FunASR的API服务，只需要五句话
     # 第一句：mkdir -p ./funasr-runtime-resources/models
-    # 第二句：sudo docker run -d -p 10096:10095 --privileged=true -v $PWD/funasr-runtime-resources/models:/workspace/models registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.12
+    # 第二句：sudo docker run -p 10096:10095 -it --privileged=true -v $PWD/funasr-runtime-resources/models:/workspace/models registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.12
     # 上一句话执行后会进入到容器，继续第三句：cd FunASR/runtime
     # 不要退出容器，继续在容器中执行第四句：nohup bash run_server_2pass.sh --download-model-dir /workspace/models --vad-dir damo/speech_fsmn_vad_zh-cn-16k-common-onnx --model-dir damo/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-onnx  --online-model-dir damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online-onnx  --punc-dir damo/punc_ct-transformer_zh-cn-common-vad_realtime-vocab272727-onnx --lm-dir damo/speech_ngram_lm_zh-cn-ai-wesp-fst --itn-dir thuduj12/fst_itn_zh --hotword /workspace/models/hotwords.txt > log.txt 2>&1 &
     # 上一句话执行后会进入到容器，继续第五句：tail -f log.txt
@@ -231,6 +239,7 @@ ASR:
     host: 127.0.0.1
     port: 10096
     is_ssl: true
+    api_key: none
     output_dir: tmp/
   SherpaASR:
     type: sherpa_onnx_local
@@ -475,20 +484,13 @@ TTS:
     speed: 1
     output_dir: tmp/
   FishSpeech:
-    # 定义TTS API类型
-    #启动tts方法：
-    #python -m tools.api_server
-    #--listen 0.0.0.0:8080
-    #--llama-checkpoint-path "checkpoints/fish-speech-1.5"
-    #--decoder-checkpoint-path "checkpoints/fish-speech-1.5/firefly-gan-vq-fsq-8x1024-21hz-generator.pth"
-    #--decoder-config-name firefly_gan_vq
-    #--compile
+    # 参照教程：https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/fish-speech-integration.md
     type: fishspeech
     output_dir: tmp/
     response_format: wav
     reference_id: null
-    reference_audio: ["/tmp/test.wav",]
-    reference_text: ["你弄来这些吟词宴曲来看，还是这些混话来欺负我。",]
+    reference_audio: ["config/assets/wakeup_words.wav",]
+    reference_text: ["哈啰啊，我是小智啦，声音好听的台湾女孩一枚，超开心认识你耶，最近在忙啥，别忘了给我来点有趣的料哦，我超爱听八卦的啦",]
     normalize: true
     max_new_tokens: 1024
     chunk_length: 200

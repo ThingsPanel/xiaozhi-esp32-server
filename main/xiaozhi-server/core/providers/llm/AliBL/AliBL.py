@@ -61,5 +61,6 @@ class LLMProvider(LLMProviderBase):
             yield "【LLM服务响应异常】"
 
     def response_with_functions(self, session_id, dialogue, functions=None):
-        logger.bind(tag=TAG).info(f"阿里百练暂未实现完整的工具调用（function call）")
-        return self.response(session_id, dialogue)
+        logger.bind(tag=TAG).error(
+            f"阿里百练暂未实现完整的工具调用（function call），建议使用其他意图识别"
+        )

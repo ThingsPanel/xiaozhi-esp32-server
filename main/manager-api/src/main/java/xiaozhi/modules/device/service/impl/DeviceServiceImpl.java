@@ -9,6 +9,8 @@ import java.util.TimeZone;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.aop.framework.AopContext;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -53,6 +55,24 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
     private final SysParamsService sysParamsService;
     private final RedisUtils redisUtils;
     private final OtaService otaService;
+
+    @Async
+    public void updateDeviceConnectionInfo(String agentId, String deviceId, String appVersion) {
+        try {
+            DeviceEntity device = new DeviceEntity();
+            device.setId(deviceId);
+            device.setLastConnectedAt(new Date());
+            if (StringUtils.isNotBlank(appVersion)) {
+                device.setAppVersion(appVersion);
+            }
+            deviceDao.updateById(device);
+            if (StringUtils.isNotBlank(agentId)) {
+                redisUtils.set(RedisKeys.getAgentDeviceLastConnectedAtById(agentId), new Date());
+            }
+        } catch (Exception e) {
+            log.error("异步更新设备连接信息失败", e);
+        }
+    }
 
     @Override
     public Boolean deviceActivation(String agentId, String activationCode) {
@@ -118,14 +138,20 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
         DeviceEntity deviceById = getDeviceByMacAddress(macAddress);
 
-        // 只有在设备已绑定且autoUpdate不为0的情况下才返回固件升级信息
-        if (deviceById != null && deviceById.getAutoUpdate() != 0) {
-            String type = deviceReport.getBoard() == null ? null : deviceReport.getBoard().getType();
-            DeviceReportRespDTO.Firmware firmware = buildFirmwareInfo(type,
-                    deviceReport.getApplication() == null ? null : deviceReport.getApplication().getVersion());
+        // 设备未绑定，则返回当前上传的固件信息（不更新）以此兼容旧固件版本
+        if (deviceById == null) {
+            DeviceReportRespDTO.Firmware firmware = new DeviceReportRespDTO.Firmware();
+            firmware.setVersion(deviceReport.getApplication().getVersion());
+            firmware.setUrl("http://xiaozhi.server.com:8002/xiaozhi/otaMag/download/NOT_ACTIVATED_FIRMWARE_THIS_IS_A_INVALID_URL");
             response.setFirmware(firmware);
         } else {
-            response.setFirmware(null);
+            // 只有在设备已绑定且autoUpdate不为0的情况下才返回固件升级信息
+            if (deviceById.getAutoUpdate() != 0) {
+                String type = deviceReport.getBoard() == null ? null : deviceReport.getBoard().getType();
+                DeviceReportRespDTO.Firmware firmware = buildFirmwareInfo(type,
+                        deviceReport.getApplication() == null ? null : deviceReport.getApplication().getVersion());
+                response.setFirmware(firmware);
+            }
         }
 
         // 添加WebSocket配置
@@ -150,13 +176,12 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         response.setWebsocket(websocket);
 
         if (deviceById != null) {
-            // 如果设备存在，则更新上次连接时间
-            deviceById.setLastConnectedAt(new Date());
-            if (deviceReport.getApplication() != null
-                    && StringUtils.isNotBlank(deviceReport.getApplication().getVersion())) {
-                deviceById.setAppVersion(deviceReport.getApplication().getVersion());
-            }
-            deviceDao.updateById(deviceById);
+            // 如果设备存在，则异步更新上次连接时间和版本信息
+            String appVersion = deviceReport.getApplication() != null ? deviceReport.getApplication().getVersion()
+                    : null;
+            // 通过Spring代理调用异步方法
+            ((DeviceServiceImpl) AopContext.currentProxy()).updateDeviceConnectionInfo(deviceById.getAgentId(),
+                    deviceById.getId(), appVersion);
         } else {
             // 如果设备不存在，则生成激活码
             DeviceReportRespDTO.Activation code = buildActivation(macAddress, deviceReport);

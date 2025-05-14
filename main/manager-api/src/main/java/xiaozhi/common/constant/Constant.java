@@ -1,5 +1,7 @@
 package xiaozhi.common.constant;
 
+import lombok.Getter;
+
 /**
  * 常量
  * Copyright (c) 人人开源 All rights reserved.
@@ -109,6 +111,11 @@ public interface Constant {
      */
     String FILE_EXTENSION_SEG = ".";
 
+    /**
+     * 无记忆
+     */
+    String MEMORY_NO_MEM = "Memory_nomem";
+
     enum SysBaseParam {
         /**
          * 系统全称
@@ -174,8 +181,23 @@ public interface Constant {
         }
     }
 
+    @Getter
+    enum ChatHistoryConfEnum {
+        IGNORE(0, "不记录"),
+        RECORD_TEXT(1, "记录文本"),
+        RECORD_TEXT_AUDIO(2, "文本音频都记录");
+
+        private final int code;
+        private final String name;
+
+        ChatHistoryConfEnum(int code, String name) {
+            this.code = code;
+            this.name = name;
+        }
+    }
+
     /**
      * 版本号
      */
-    public static final String VERSION = "0.4.2";
+    public static final String VERSION = "0.4.3";
 }
