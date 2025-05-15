@@ -7,7 +7,7 @@ from aiohttp import web
 from config.logger import setup_logging
 from core.connection import ConnectionHandler
 from core.utils.util import get_local_ip, initialize_modules
-from core.utils.tp import authenticate_device
+from core.utils.tp import authenticate_device, update_device_online_status
 
 TAG = __name__
 
@@ -72,9 +72,9 @@ class SimpleOtaServer:
         """处理 /xiaozhi/ota/ 的 POST 请求"""
         try:
             data = await request.text()
-            self.logger.bind(tag=TAG).debug(f"OTA请求方法: {request.method}")
-            self.logger.bind(tag=TAG).debug(f"OTA请求头: {request.headers}")
-            self.logger.bind(tag=TAG).debug(f"OTA请求数据: {data}")
+            self.logger.bind(tag=TAG).info(f"OTA请求方法: {request.method}")
+            self.logger.bind(tag=TAG).info(f"OTA请求头: {request.headers}")
+            self.logger.bind(tag=TAG).info(f"OTA请求数据: {data}")
 
             device_id = request.headers.get("device-id", "")
             if device_id:
@@ -113,44 +113,59 @@ class SimpleOtaServer:
             # 获取voucher.json配置
             with open("data/voucher.json", "r") as f:
                 voucher_data = json.load(f)
-            tp_auth_type = voucher_data.get("voucher").get("auth_type") # auto, manual
 
-            # 检查设备是否存在于数据库中，如果不存在则创建此设备
+            # 解析嵌套的JSON字符串
+            voucher_str = voucher_data.get("voucher", "{}")
+            try:
+                voucher_obj = json.loads(voucher_str)
+                tp_auth_type = voucher_obj.get("auth_type", "manual")
+            except json.JSONDecodeError:
+                self.logger.bind(tag=TAG).error(f"无法解析voucher JSON字符串: {voucher_str}")
+                tp_auth_type = "manual"  # 设置默认值
+
+            # 检查设备是否存在于数据库中，如果不存在则自动创建此设备
             device_info = self.check_or_create_device(device_id, template_secret)
             if not device_info:
                 raise Exception("设备检查或创建失败")
-            
-            # 现在可以使用 device_info 中的信息，比如 verify_code
-            verify_code = device_info['verify_code']
-            
-            auth_result = False
-            # 如果此接入点开启了自动认证，则调用TP的一型一密接口自动认证并生成TP Device
-            if tp_auth_type == "auto":
-                # 调用TP的一型一密接口自动认证并生成TP Device
-                auth_result, auth_data = await authenticate_device(template_secret, device_id, device_info['device_name'])
-                pass
-
-            # 如果自动认证失败，可能是设备模块不允许自动认证，则返回activation: code, message, challenge走手动认证
-            if not auth_result:
-                return_json["activation"] = {
-                    "code": verify_code,
-                    "message": verify_code,
-                    "challenge": device_id,
-                }
             else:
-                # 更新设备状态为activated
-                self.update_device_status(device_id, "activated")
+                # 同步更新设备状态为在线, 如果TP中不存在此设备则会返回False
+                is_online = await update_device_online_status(device_id, True)
+
+                # 如果此接入点开启了自动认证，则调用TP的一型一密接口自动认证并生成TP Device
+                if tp_auth_type == "auto":
+                    # 输出日志开始自动激活
+                    self.logger.bind(tag=TAG).info(f"开始认证设备: {device_id}")
+                    # 调用TP的一型一密接口自动认证并生成TP Device
+                    auth_result, auth_data = await authenticate_device(template_secret, device_id, device_info['device_name'])
+                # 如果此接入点开启了人工认证
+                else:
+                    if is_online: # 说明设备已经激活
+                        # 更新设备状态为activated
+                        self.update_device_status(device_id, "activated")
+                        auth_result = True
+                    else:
+                        # 设备在TP中并未激活, 则强制走人工激活, 无论ESP DB中是否activated
+                        auth_result = False
+                        
+                # 设备未认证时成功时
+                if not auth_result:
+                    verify_code = device_info['verify_code']
+                    # 如果自动认证失败，可能是设备模块不允许自动认证，则返回activation: code, message, challenge走手动认证
+                    return_json["activation"] = {
+                        "code": verify_code,
+                        "message": "激活码: " + verify_code,
+                        "challenge": device_id,
+                    }
 
             # 返回信息输出日志
-            self.logger.bind(tag=TAG).info(f"OTA请求返回信息: {return_json}")
-            
             response = web.Response(
                 text=json.dumps(return_json, separators=(",", ":")),
                 content_type="application/json",
             )
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"OTA请求异常: {e}")
-            return_json = {"success": False, "message": "request error."}
+            # return_json = {"success": False, "message": "request error."}
+            return_json = "" # 返回空用于中断设备初始化
             response = web.Response(
                 text=json.dumps(return_json, separators=(",", ":")),
                 content_type="application/json",
@@ -167,6 +182,7 @@ class SimpleOtaServer:
     async def _handle_ota_get_request(self, request):
         """处理 /xiaozhi/ota/ 的 GET 请求"""
         try:
+            self.logger.bind(tag=TAG).info(f"收到OTA GET请求: {request.headers}")
             server_config = self.config["server"]
             local_ip = get_local_ip()
             port = int(server_config.get("port", 8000))
@@ -362,7 +378,7 @@ class SimpleOtaServer:
                 self.logger.bind(tag=TAG).info(f"设备 {device_id} 已存在于数据库中")
                 # 将查询结果转换为字典
                 columns = ['device_id', 'device_name', 'description', 'template_secret', 
-                          'verify_code']
+                          'verify_code', 'status']
                 return dict(zip(columns, device_info))
             else:
                 # 设备不存在，创建新设备
@@ -406,7 +422,8 @@ class SimpleOtaServer:
                     'device_name': device_name,
                     'description': description,
                     'template_secret': template_secret,
-                    'verify_code': verify_code
+                    'verify_code': verify_code,
+                    'status': 'pending'
                 }
                 
         except Exception as e:

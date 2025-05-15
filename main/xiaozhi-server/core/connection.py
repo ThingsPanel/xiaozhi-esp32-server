@@ -32,7 +32,6 @@ from plugins_func.register import Action, ActionResponse
 from core.auth import AuthMiddleware, AuthenticationError
 from core.mcp.manager import MCPManager
 from config.config_loader import get_private_config_from_api
-from config.manage_api_client import DeviceNotFoundException, DeviceBindException, ManageApiClient
 from core.utils.output_counter import add_device_output
 from core.handle.reportHandle import enqueue_tts_report, report
 
@@ -61,12 +60,6 @@ class ConnectionHandler:
         self.config = copy.deepcopy(config)
         self.session_id = str(uuid.uuid4())
         self.logger = setup_logging()
-        self.server = server  # 保存server实例的引用
-        self.auth = AuthMiddleware(config)
-
-        # 初始化 ManageApiClient
-        self.manage_api = ManageApiClient(config)
-        self.logger.bind(tag=TAG).info("初始化 ManageApiClient")
         self.server = server  # 保存server实例的引用
 
         self.auth = AuthMiddleware(config)
@@ -193,8 +186,12 @@ class ConnectionHandler:
             # 更新设备状态为在线
             device_id = self.headers.get("device-id")
             if device_id:
-                # 调用tp.py中的方法update_device_online_status来更新设备状态
-                update_device_online_status(device_id, True)
+                # 异步调用需要用 asyncio.run_coroutine_threadsafe
+                self.logger.bind(tag=TAG).info(f"开始更新设备状态为在线: {device_id}")
+                asyncio.run_coroutine_threadsafe(
+                    update_device_online_status(device_id, True),
+                    self.loop
+                )
 
             # 启动超时检查任务
             self.timeout_task = asyncio.create_task(self._check_timeout())
@@ -204,7 +201,7 @@ class ConnectionHandler:
             await self.websocket.send(json.dumps(self.welcome_msg))
 
             # 获取差异化配置
-            private_config = self._initialize_private_config()
+            self._initialize_private_config()
 
             # 异步初始化
             self.executor.submit(self._initialize_components)
@@ -225,7 +222,13 @@ class ConnectionHandler:
                     await self._route_message(message)
             except websockets.exceptions.ConnectionClosed:
                 if device_id:
-                    update_device_online_status(device_id, False)
+                    try:
+                        asyncio.run_coroutine_threadsafe(
+                            update_device_online_status(device_id, False),
+                            self.loop
+                        )
+                    except Exception as e:
+                        self.logger.bind(tag=TAG).error(f"更新设备状态为离线失败: {e}")
                 self.logger.bind(tag=TAG).info("客户端断开连接")
 
         except AuthenticationError as e:
@@ -264,7 +267,13 @@ class ConnectionHandler:
             # 更新设备状态为离线
             device_id = self.headers.get("device-id")
             if device_id:
-                update_device_online_status(device_id, False)
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        update_device_online_status(device_id, False),
+                        self.loop
+                    )
+                except Exception as e:
+                    self.logger.bind(tag=TAG).error(f"更新设备状态为离线失败: {e}")
 
     async def reset_timeout(self):
         """重置超时计时器"""

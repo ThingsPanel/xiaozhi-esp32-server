@@ -19,9 +19,18 @@ class ThingsPanelClient:
         # 获取voucher.json配置
         with open("data/voucher.json", "r") as f:
             voucher_data = json.load(f)
-        # 获取ThingsPanel的接入信息
-        self.base_url = voucher_data.get("voucher").get("ThingsPanelApiURL")
-        self.api_token = voucher_data.get("voucher").get("ThingsPanelApiKey")
+
+        # 解析嵌套的JSON字符串
+        voucher_str = voucher_data.get("voucher", "{}")
+        try:
+            voucher_obj = json.loads(voucher_str)
+            # 获取ThingsPanel的接入信息
+            self.base_url = voucher_obj.get("ThingsPanelApiURL")
+            self.api_token = voucher_obj.get("ThingsPanelApiKey")
+        except json.JSONDecodeError:
+            self.logger.bind(tag=TAG).error(f"无法解析voucher JSON字符串: {voucher_str}")
+            self.base_url = None
+            self.api_token = None
         
     async def device_auth(self, template_secret: str, device_number: str, 
                          device_name: str = None, product_key: str = None) -> tuple[bool, Dict[str, Any]]:
@@ -101,6 +110,9 @@ class ThingsPanelClient:
         """
         # 注意：这里假设状态更新接口的路径，实际路径需要根据API文档确认
         url = f"{self.base_url}/device"
+
+        # 写日志开始更新
+        self.logger.bind(tag=TAG).info(f"开始更新设备在线状态: {device_number} 为 {is_online}")
         
         # 构建请求头
         headers = {
@@ -118,17 +130,16 @@ class ThingsPanelClient:
         
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, json=payload) as response:
+                async with session.put(url, headers=headers, json=payload) as response:
                     response_data = await response.json()
                     
                     self.logger.bind(tag=TAG).info(f"设备状态更新请求: {payload}")
                     self.logger.bind(tag=TAG).info(f"设备状态更新响应: {response_data}")
                     
                     if response.status == 200 and response_data.get('code') == 200:
-                        return response_data
+                        return True
                     else:
-                        error_msg = response_data.get('message', f'HTTP {response.status}')
-                        raise Exception(f"设备状态更新失败: {error_msg}")
+                        return False
                         
         except aiohttp.ClientError as e:
             self.logger.bind(tag=TAG).error(f"设备状态更新网络错误: {str(e)}")
