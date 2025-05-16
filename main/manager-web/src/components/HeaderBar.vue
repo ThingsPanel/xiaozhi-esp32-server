@@ -58,7 +58,7 @@
 
       <!-- 右侧元素 -->
       <div class="header-right">
-        <div class="search-container" v-if="$route.path === '/home'">
+        <div class="search-container" v-if="$route.path === '/home' && !(isSuperAdmin && isSmallScreen)">
           <el-input v-model="search" placeholder="输入名称搜索.." class="custom-search-input"
             @keyup.enter.native="handleSearch">
             <i slot="suffix" class="el-icon-search search-icon" @click="handleSearch"></i>
@@ -103,7 +103,8 @@ export default {
       },
       isChangePasswordDialogVisible: false, // 控制修改密码弹窗的显示
       userDropdownVisible: false,
-      paramDropdownVisible: false
+      paramDropdownVisible: false,
+      isSmallScreen: false
     }
   },
   computed: {
@@ -113,7 +114,13 @@ export default {
     }
   },
   mounted() {
-    this.fetchUserInfo()
+    this.fetchUserInfo();
+    this.checkScreenSize();
+    window.addEventListener('resize', this.checkScreenSize);
+  },
+  //移除事件监听器
+  beforeDestroy() {
+    window.removeEventListener('resize', this.checkScreenSize);
   },
   methods: {
     goHome() {
@@ -147,7 +154,9 @@ export default {
         }
       })
     },
-
+    checkScreenSize() {
+      this.isSmallScreen = window.innerWidth <= 1386;
+    },
     // 处理搜索
     handleSearch() {
       const searchValue = this.search.trim();
@@ -354,45 +363,6 @@ export default {
   }
 }
 
-@media (max-width: 1024px) {
-  .search-container {
-    margin-right: 10px;
-    max-width: 150px;
-  }
-
-  .header-right {
-    gap: 5px;
-  }
-}
-
-@media (max-width: 900px) {
-  .header-left {
-    margin-right: auto;
-  }
-
-  .search-container {
-    max-width: 150px;
-  }
-}
-
-@media (max-width: 768px) {
-  .search-container {
-    max-width: 145px;
-  }
-
-  .custom-search-input>>>.el-input__inner {
-    padding-left: 10px;
-    font-size: 11px;
-  }
-}
-
-@media (max-width: 600px) {
-  .search-container {
-    max-width: 120px;
-    min-width: 100px;
-  }
-}
-
 .equipment-management.more-dropdown {
   position: relative;
 }
@@ -410,14 +380,5 @@ export default {
   font-size: 14px;
   color: #606266;
   white-space: nowrap;
-}
-
-@media (max-width: 768px) {
-  .equipment-management.more-dropdown .el-dropdown-menu {
-    position: fixed;
-    right: 10px;
-    top: 60px;
-    z-index: 2000;
-  }
 }
 </style>

@@ -142,7 +142,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         if (deviceById == null) {
             DeviceReportRespDTO.Firmware firmware = new DeviceReportRespDTO.Firmware();
             firmware.setVersion(deviceReport.getApplication().getVersion());
-            firmware.setUrl("http://xiaozhi.server.com:8002/xiaozhi/otaMag/download/NOT_ACTIVATED_FIRMWARE_THIS_IS_A_INVALID_URL");
+            firmware.setUrl(Constant.INVALID_FIRMWARE_URL);
             response.setFirmware(firmware);
         } else {
             // 只有在设备已绑定且autoUpdate不为0的情况下才返回固件升级信息
@@ -378,7 +378,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         }
 
         firmware.setVersion(ota == null ? currentVersion : ota.getVersion());
-        firmware.setUrl(downloadUrl == null ? "" : downloadUrl);
+        firmware.setUrl(downloadUrl == null ? Constant.INVALID_FIRMWARE_URL : downloadUrl);
         return firmware;
     }
 

@@ -200,4 +200,9 @@ public interface Constant {
      * 版本号
      */
     public static final String VERSION = "0.4.3";
+
+    /**
+     * 无效固件URL
+     */
+    String INVALID_FIRMWARE_URL = "http://xiaozhi.server.com:8002/xiaozhi/otaMag/download/NOT_ACTIVATED_FIRMWARE_THIS_IS_A_INVALID_URL";
 }

@@ -21,6 +21,6 @@ class MemoryProviderBase(ABC):
         """Query memories for specific role based on similarity"""
         return "please implement query method"
 
-    def init_memory(self, role_id, llm, summary_memory=None):
+    def init_memory(self, role_id, llm, **kwargs):
         self.role_id = role_id
         self.llm = llm

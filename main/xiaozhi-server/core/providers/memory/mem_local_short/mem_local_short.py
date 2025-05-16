@@ -112,8 +112,10 @@ class MemoryProvider(MemoryProviderBase):
         self.memory_path = get_project_dir() + "data/.memory.yaml"
         self.load_memory(summary_memory)
 
-    def init_memory(self, role_id, llm, summary_memory=None, save_to_file=True):
-        super().init_memory(role_id, llm)
+    def init_memory(
+        self, role_id, llm, summary_memory=None, save_to_file=True, **kwargs
+    ):
+        super().init_memory(role_id, llm, **kwargs)
         self.save_to_file = save_to_file
         self.load_memory(summary_memory)
 

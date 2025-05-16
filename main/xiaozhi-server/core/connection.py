@@ -251,7 +251,9 @@ class ConnectionHandler:
                         # 创建新事件循环（避免与主循环冲突）
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
-                        loop.run_until_complete(self.memory.save_memory(self.dialogue.dialogue))
+                        loop.run_until_complete(
+                            self.memory.save_memory(self.dialogue.dialogue)
+                        )
                     except Exception as e:
                         self.logger.bind(tag=TAG).error(f"保存记忆失败: {e}")
                     finally:
@@ -471,10 +473,10 @@ class ConnectionHandler:
     def _initialize_memory(self):
         """初始化记忆模块"""
         self.memory.init_memory(
-            self.device_id,
-            self.llm,
-            self.config["summaryMemory"],
-            not self.read_config_from_api,
+            role_id=self.device_id,
+            llm=self.llm,
+            summary_memory=self.config.get("summaryMemory", None),
+            save_to_file=not self.read_config_from_api,
         )
 
     def _initialize_intent(self):
