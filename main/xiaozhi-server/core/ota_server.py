@@ -140,8 +140,6 @@ class SimpleOtaServer:
                 # 如果此接入点开启了人工认证
                 else:
                     if is_online: # 说明设备已经激活
-                        # 更新设备状态为activated
-                        self.update_device_status(device_id, "activated")
                         auth_result = True
                     else:
                         # 设备在TP中并未激活, 则强制走人工激活, 无论ESP DB中是否activated
@@ -156,6 +154,10 @@ class SimpleOtaServer:
                         "message": "激活码: " + verify_code,
                         "challenge": device_id,
                     }
+                    self.update_device_status(device_id, "pending")
+                else:
+                    # 设备认证成功，更新设备状态为activated
+                    self.update_device_status(device_id, "activated")
 
             # 返回信息输出日志
             response = web.Response(

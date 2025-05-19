@@ -1,0 +1,1 @@
+D:\Administrator\.espressif\python_env\idf5.4_py3.11_env\Scripts\python.exe D:\esp\v5.4.1\esp-idf\tools\idf_monitor.py -p COM3 -b 115200
