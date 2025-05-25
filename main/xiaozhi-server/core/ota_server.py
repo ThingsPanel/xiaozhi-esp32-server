@@ -125,6 +125,7 @@ class SimpleOtaServer:
 
             # 检查设备是否存在于数据库中，如果不存在则自动创建此设备
             device_info = self.check_or_create_device(device_id, template_secret)
+            verify_code = device_info['verify_code']
             if not device_info:
                 raise Exception("设备检查或创建失败")
             else:
@@ -137,6 +138,12 @@ class SimpleOtaServer:
                     self.logger.bind(tag=TAG).info(f"开始认证设备: {device_id}")
                     # 调用TP的一型一密接口自动认证并生成TP Device
                     auth_result, auth_data = await authenticate_device(template_secret, device_id, device_info['device_name'])
+                    if not auth_result:
+                        return_json["activation"] = {
+                            "code": verify_code,
+                            "message": "设备认证失败，请联系管理员",
+                            "challenge": device_id,
+                        }
                 # 如果此接入点开启了人工认证
                 else:
                     if is_online: # 说明设备已经激活
@@ -144,16 +151,15 @@ class SimpleOtaServer:
                     else:
                         # 设备在TP中并未激活, 则强制走人工激活, 无论ESP DB中是否activated
                         auth_result = False
+                        # 如果自动认证失败，可能是设备模块不允许自动认证，则返回activation: code, message, challenge走手动认证
+                        return_json["activation"] = {
+                            "code": verify_code,
+                            "message": "激活码: " + verify_code,
+                            "challenge": device_id,
+                        }
                         
                 # 设备未认证时成功时
                 if not auth_result:
-                    verify_code = device_info['verify_code']
-                    # 如果自动认证失败，可能是设备模块不允许自动认证，则返回activation: code, message, challenge走手动认证
-                    return_json["activation"] = {
-                        "code": verify_code,
-                        "message": "激活码: " + verify_code,
-                        "challenge": device_id,
-                    }
                     self.update_device_status(device_id, "pending")
                 else:
                     # 设备认证成功，更新设备状态为activated
