@@ -56,29 +56,25 @@ class MemoryProvider(MemoryProviderBase):
         self.api_url = config.get('api_url', '')
         self.api_key = config.get('api_key', '')
         
-        # 存储配置
+        # 修改存储配置，只需要基础路径
         storage_config = config.get('storage', {})
-        self.index_path = storage_config.get('index_path', 'data/vector_memory.index')
-        self.metadata_path = storage_config.get('metadata_path', 'data/vector_memory.json')
+        self.base_index_path = storage_config.get('index_path', 'data/vector_memory/')
         
         # 确保存储目录存在
-        os.makedirs(os.path.dirname(self.index_path), exist_ok=True)
-        os.makedirs(os.path.dirname(self.metadata_path), exist_ok=True)
+        os.makedirs(self.base_index_path, exist_ok=True)
         
-        # 初始化存储
-        self.metadata = []
-        self.index = None
+        # 存储用户特定的索引和元数据
+        self.user_indices: Dict[str, Any] = {}  # 用户ID -> FAISS索引
+        self.user_metadata: Dict[str, List[dict]] = {}  # 用户ID -> 元数据列表
         
         try:
-            # 动态导入FAISS，避免在导入时阻塞
             self._initialize_faiss()
         except Exception as e:
             self.logger.error(f"FAISS初始化失败，将使用简单存储: {e}")
-            # 允许在FAISS失败时继续运行
             self.faiss_available = False
         else:
             self.faiss_available = True
-            self._initialize_storage()
+            self._initialize_user_storage()
         
         self.logger.info("向量记忆提供者初始化完成")
 
@@ -93,48 +89,43 @@ class MemoryProvider(MemoryProviderBase):
             self.logger.error("请安装FAISS: pip install faiss-cpu")
             raise
 
-    def _initialize_storage(self) -> None:
-        """初始化存储，包括FAISS索引和元数据"""
+    def _get_user_paths(self) -> tuple:
+        """获取当前用户的文件路径
+        
+        Returns:
+            (index_path, metadata_path): 用户特定的索引和元数据文件路径
+        """
+        index_path = os.path.join(self.base_index_path, f'vector_memory_{self.role_id}.index')
+        metadata_path = os.path.join(self.base_index_path, f'vector_memory_{self.role_id}.json')
+        return index_path, metadata_path
+
+    def _initialize_user_storage(self) -> None:
+        """初始化当前用户的存储"""
         if not self.faiss_available:
             return
             
-        # 初始化或加载FAISS索引
-        if os.path.exists(self.index_path):
-            try:
-                self.index = self.faiss.read_index(self.index_path)
-                self.logger.info(f"已加载FAISS索引: {self.index_path}")
-            except Exception as e:
-                self.logger.error(f"加载FAISS索引失败: {e}")
-                self.index = self.faiss.IndexFlatL2(self.dimension)
-        else:
-            self.index = self.faiss.IndexFlatL2(self.dimension)
-            self.logger.info("已创建新的FAISS索引")
+        index_path, metadata_path = self._get_user_paths()
         
-        # 初始化或加载元数据
-        if os.path.exists(self.metadata_path):
+        # 初始化用户索引
+        if os.path.exists(index_path):
             try:
-                with open(self.metadata_path, 'r', encoding='utf-8') as f:
-                    self.metadata = json.load(f)
-                self.logger.info(f"已加载元数据: {self.metadata_path}")
+                self.user_indices[self.role_id] = self.faiss.read_index(index_path)
             except Exception as e:
-                self.logger.error(f"加载元数据失败: {e}")
-                self.metadata = []
+                self.logger.error(f"加载用户{self.role_id}的FAISS索引失败: {e}")
+                self.user_indices[self.role_id] = self.faiss.IndexFlatL2(self.dimension)
         else:
-            self.metadata = []
-            self.logger.info("已创建新的元数据列表")
-
-    def _save_storage(self) -> None:
-        """保存存储状态到文件"""
-        if not self.faiss_available or self.index is None:
-            return
-            
-        try:
-            self.faiss.write_index(self.index, self.index_path)
-            with open(self.metadata_path, 'w', encoding='utf-8') as f:
-                json.dump(self.metadata, f, ensure_ascii=False, indent=2)
-            self.logger.info("存储状态已保存")
-        except Exception as e:
-            self.logger.error(f"保存存储状态失败: {e}")
+            self.user_indices[self.role_id] = self.faiss.IndexFlatL2(self.dimension)
+        
+        # 初始化用户元数据
+        if os.path.exists(metadata_path):
+            try:
+                with open(metadata_path, 'r', encoding='utf-8') as f:
+                    self.user_metadata[self.role_id] = json.load(f)
+            except Exception as e:
+                self.logger.error(f"加载用户{self.role_id}的元数据失败: {e}")
+                self.user_metadata[self.role_id] = []
+        else:
+            self.user_metadata[self.role_id] = []
 
     async def _get_embedding(self, text: str) -> Optional[np.ndarray]:
         """获取文本的向量嵌入
@@ -306,129 +297,80 @@ class MemoryProvider(MemoryProviderBase):
         return min(score, 10)
 
     async def save_memory(self, messages: List[Message]) -> bool:
-        """保存记忆
-        
-        Args:
-            messages: 消息列表
-            
-        Returns:
-            是否保存成功
-        """
+        """保存记忆"""
         if not messages:
             return True
             
-        # 如果没有FAISS，使用简单存储
-        if not self.faiss_available:
-            self.logger.warning("FAISS不可用，使用简单存储")
-            for message in messages:
-                memory_text = self._build_memory_text(message)
-                if self._filter_memory(memory_text):
-                    self.metadata.append({
-                        'text': memory_text,
-                        'timestamp': datetime.now().isoformat(),
-                        'role': message.role
-                    })
+        # 确保用户存储已初始化
+        if self.role_id not in self.user_indices:
+            self._initialize_user_storage()
+        
+        # 保存用户记忆
+        for message in messages:
+            memory_text = self._build_memory_text(message)
+            if not self._filter_memory(memory_text):
+                continue
+                
+            embedding = await self._get_embedding(memory_text)
+            if embedding is None:
+                continue
+                
+            # 添加到用户索引
+            self.user_indices[self.role_id].add(embedding.reshape(1, -1))
             
-            # 限制元数据大小
-            if len(self.metadata) > 1000:
-                self.metadata = self.metadata[-1000:]
-                
-            # 保存元数据
-            try:
-                with open(self.metadata_path, 'w', encoding='utf-8') as f:
-                    json.dump(self.metadata, f, ensure_ascii=False, indent=2)
-            except Exception as e:
-                self.logger.error(f"保存元数据失败: {e}")
-                
-            return True
-            
-        try:
-            for message in messages:
-                # 构建记忆文本
-                memory_text = self._build_memory_text(message)
-                
-                # 过滤记忆
-                if not self._filter_memory(memory_text):
-                    continue
-                    
-                # 获取向量嵌入
-                embedding = await self._get_embedding(memory_text)
-                if embedding is None:
-                    # 如果获取嵌入失败，仍然保存元数据但不添加到索引
-                    current_time = datetime.now().isoformat()
-                    timestamp = current_time
-                    if hasattr(message, 'timestamp') and message.timestamp:
-                        timestamp = message.timestamp
-                        
-                    self.metadata.append({
-                        'text': memory_text,
-                        'timestamp': timestamp,
-                        'role': message.role,
-                        'tool_name': getattr(message, 'tool_name', None),
-                        'tool_call_id': getattr(message, 'tool_call_id', None),
-                        'no_embedding': True
-                    })
-                    continue
-                    
-                # 添加到索引
-                self.index.add(embedding.reshape(1, -1))
-                
-                # 添加元数据
-                current_time = datetime.now().isoformat()
-                timestamp = current_time
-                if hasattr(message, 'timestamp') and message.timestamp:
-                    timestamp = message.timestamp
-                    
-                self.metadata.append({
-                    'text': memory_text,
-                    'timestamp': timestamp,
-                    'role': message.role,
-                    'tool_name': getattr(message, 'tool_name', None),
-                    'tool_call_id': getattr(message, 'tool_call_id', None)
-                })
+            # 添加用户元数据
+            self.user_metadata[self.role_id].append({
+                'text': memory_text,
+                'timestamp': getattr(message, 'timestamp', datetime.now().isoformat()),
+                'role': message.role,
+                'tool_name': getattr(message, 'tool_name', None),
+                'tool_call_id': getattr(message, 'tool_call_id', None)
+            })
             
             # 检查是否需要清理记忆
-            if len(self.metadata) > self.max_memories * self.clean_threshold:
+            if len(self.user_metadata[self.role_id]) > self.max_memories * self.clean_threshold:
                 await self._clean_memories()
+                
+            # 保存用户存储状态
+            self._save_user_storage()
             
-            # 保存存储状态
-            self._save_storage()
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"保存记忆失败: {e}")
-            return False
-            
-    async def _clean_memories(self) -> None:
-        """清理不重要的历史记忆
-        
-        清理策略:
-        1. 保留所有重要性高于阈值的记忆
-        2. 对于重要性低于阈值的记忆，按照时间顺序保留最近的一部分
-        """
-        if not self.faiss_available or len(self.metadata) == 0:
+        return True
+
+    def _save_user_storage(self) -> None:
+        """保存当前用户的存储状态到文件"""
+        if not self.faiss_available or self.role_id not in self.user_indices:
             return
             
-        self.logger.info(f"开始清理记忆，当前记忆数量: {len(self.metadata)}")
+        try:
+            index_path, metadata_path = self._get_user_paths()
+            self.faiss.write_index(self.user_indices[self.role_id], index_path)
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(self.user_metadata[self.role_id], f, ensure_ascii=False, indent=2)
+            self.logger.info(f"用户{self.role_id}的存储状态已保存")
+        except Exception as e:
+            self.logger.error(f"保存用户{self.role_id}的存储状态失败: {e}")
+
+    async def _clean_memories(self) -> None:
+        """清理不重要的历史记忆"""
+        if not self.faiss_available or not self.user_metadata[self.role_id]:
+            return
+            
+        self.logger.info(f"开始清理记忆，当前记忆数量: {len(self.user_metadata[self.role_id])}")
         
         try:
             # 提取记忆重要性
-            memories_with_importance = []
-            for i, meta in enumerate(self.metadata):
-                # 跳过没有嵌入的记忆
-                if meta.get('no_embedding', False):
-                    continue
-                    
+            memories_with_scores = []
+            for idx, meta in enumerate(self.user_metadata[self.role_id]):
                 importance = self._calculate_importance(meta['text'])
-                memories_with_importance.append((i, meta, importance))
+                memories_with_scores.append((idx, meta, importance))
             
             # 获取过滤器配置中的重要性阈值
             filter_config = self.config.get('memory_filter', {})
             min_importance = filter_config.get('min_importance', 3)
             
             # 分离重要和不重要的记忆
-            important_memories = [(i, meta) for i, meta, imp in memories_with_importance if imp >= min_importance]
-            unimportant_memories = [(i, meta) for i, meta, imp in memories_with_importance if imp < min_importance]
+            important_memories = [(idx, meta) for idx, meta, score in memories_with_scores if score >= min_importance]
+            unimportant_memories = [(idx, meta) for idx, meta, score in memories_with_scores if score < min_importance]
             
             # 按时间排序不重要的记忆
             unimportant_memories.sort(key=lambda x: x[1].get('timestamp', ''), reverse=True)
@@ -439,15 +381,14 @@ class MemoryProvider(MemoryProviderBase):
             
             # 确定要保留的记忆
             keep_memories = important_memories + unimportant_memories[:keep_unimportant_count]
-            keep_indices = [i for i, _ in keep_memories]
             
             # 创建新的FAISS索引
             new_index = self.faiss.IndexFlatL2(self.dimension)
             new_metadata = []
             
             # 重新构建索引和元数据
-            for old_idx, meta in keep_memories:
-                # 获取嵌入向量 (如果可能)
+            for _, meta in keep_memories:
+                # 获取嵌入向量
                 query_text = meta['text']
                 embedding = await self._get_embedding(query_text)
                 
@@ -456,42 +397,27 @@ class MemoryProvider(MemoryProviderBase):
                     new_metadata.append(meta)
                 
             # 更新索引和元数据
-            self.index = new_index
-            self.metadata = new_metadata
+            self.user_indices[self.role_id] = new_index
+            self.user_metadata[self.role_id] = new_metadata
             
             # 保存更新后的存储
-            self._save_storage()
+            self._save_user_storage()
             
-            self.logger.info(f"记忆清理完成，已清理 {len(memories_with_importance) - len(keep_memories)} 条记忆，" 
+            self.logger.info(f"记忆清理完成，已清理 {len(memories_with_scores) - len(keep_memories)} 条记忆，" 
                             f"保留 {len(keep_memories)} 条记忆")
             
         except Exception as e:
             self.logger.error(f"清理记忆失败: {e}")
-            
+
     async def clean_all_memories(self) -> bool:
-        """清理所有记忆
-        
-        Returns:
-            是否成功清理
-        """
-        if not self.faiss_available:
-            self.metadata = []
-            try:
-                with open(self.metadata_path, 'w', encoding='utf-8') as f:
-                    json.dump(self.metadata, f, ensure_ascii=False, indent=2)
-                self.logger.info("已清空所有记忆")
-                return True
-            except Exception as e:
-                self.logger.error(f"清空记忆失败: {e}")
-                return False
-        
+        """清理所有记忆"""
         try:
             # 创建新的FAISS索引
-            self.index = self.faiss.IndexFlatL2(self.dimension)
-            self.metadata = []
+            self.user_indices[self.role_id] = self.faiss.IndexFlatL2(self.dimension)
+            self.user_metadata[self.role_id] = []
             
             # 保存空的存储
-            self._save_storage()
+            self._save_user_storage()
             
             self.logger.info("已清空所有记忆")
             return True
@@ -501,50 +427,40 @@ class MemoryProvider(MemoryProviderBase):
             return False
 
     async def query_memory(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
-        """查询相关记忆
+        """查询相关记忆"""
+        # 获取当前用户的索引和元数据
+        user_index = self.user_indices.get(self.role_id)
+        user_metadata = self.user_metadata.get(self.role_id, [])
         
-        Args:
-            query: 查询文本
-            limit: 返回结果数量限制
-            
-        Returns:
-            相关记忆列表
-        """
-        # 如果没有FAISS或没有元数据，返回最近的记忆
-        if not self.faiss_available or not self.index or len(self.metadata) == 0:
-            self.logger.warning("FAISS不可用或没有记忆，返回最近记忆")
-            recent_memories = sorted(self.metadata, key=lambda x: x.get('timestamp', ''), reverse=True)
+        if not self.faiss_available or not user_index or not user_metadata:
+            self.logger.warning(f"用户{self.role_id}的FAISS不可用或没有记忆，返回最近记忆")
+            recent_memories = sorted(user_metadata, key=lambda x: x.get('timestamp', ''), reverse=True)
             return recent_memories[:limit]
             
         try:
-            # 获取查询向量
             query_embedding = await self._get_embedding(query)
             if query_embedding is None:
-                # 如果获取嵌入失败，返回最近的记忆
-                recent_memories = sorted(self.metadata, key=lambda x: x.get('timestamp', ''), reverse=True)
+                recent_memories = sorted(user_metadata, key=lambda x: x.get('timestamp', ''), reverse=True)
                 return recent_memories[:limit]
                 
-            # 搜索相似向量
-            D, I = self.index.search(query_embedding.reshape(1, -1), min(limit, len(self.metadata)))
+            D, I = user_index.search(query_embedding.reshape(1, -1), min(limit, len(user_metadata)))
             
-            # 过滤并格式化结果
             results = []
-            for i, (distance, idx) in enumerate(zip(D[0], I[0])):
-                if idx >= len(self.metadata) or idx < 0:
+            for distance, idx in zip(D[0], I[0]):
+                if idx >= len(user_metadata) or idx < 0:
                     continue
                     
-                similarity = 1.0 / (1.0 + distance)  # 将距离转换为相似度
+                similarity = 1.0 / (1.0 + distance)
                 if similarity < self.similarity_threshold:
                     continue
                     
-                memory = self.metadata[idx].copy()
+                memory = user_metadata[idx].copy()
                 memory['similarity'] = similarity
                 results.append(memory)
                 
             return results
             
         except Exception as e:
-            self.logger.error(f"查询记忆失败: {e}")
-            # 发生错误时返回最近的记忆
-            recent_memories = sorted(self.metadata, key=lambda x: x.get('timestamp', ''), reverse=True)
+            self.logger.error(f"查询用户{self.role_id}的记忆失败: {e}")
+            recent_memories = sorted(user_metadata, key=lambda x: x.get('timestamp', ''), reverse=True)
             return recent_memories[:limit] 
