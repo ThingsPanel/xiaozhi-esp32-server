@@ -1,149 +1,5 @@
 # 部署架构图
 ![请参考-最简化架构图](../docs/images/deploy1.png)
-# 方式一：Docker只运行Server
-
-docker镜像已支持x86架构、arm64架构的CPU，支持在国产操作系统上运行。
-
-## 1. 安装docker
-
-如果您的电脑还没安装docker，可以按照这里的教程安装：[docker安装](https://www.runoob.com/docker/ubuntu-docker-install.html)
-
-如果你已经安装好docker，你可以[1.1使用懒人脚本](#11-懒人脚本)自动帮你下载所需的文件和配置文件，你可以使用docker[1.2手动部署](#12-手动部署)。
-
-### 1.1 懒人脚本
-
-你可以使用以下命令一键下载并执行部署脚本：
-请确保你的环境可以正常访问 GitHub 否则无法下载脚本。
-```bash
-curl -L -o docker-setup.sh https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/main/docker-setup.sh
-```
-
-如果您的电脑是windows系统，请使用使用 Git Bash、WSL、PowerShell 或 CMD 运行以下命令：
-```bash
-# Git Bash 或 WSL
-sh docker-setup.sh
-# PowerShell 或 CMD
-.\docker-setup.sh
-```
-
-如果您的电脑是linux 或者 macos 系统，请使用终端运行以下命令：
-```bash
-chmod +x docker-setup.sh
-./docker-setup.sh
-```
-
-脚本会自动完成以下操作：
-> 1. 创建必要的目录结构
-> 2. 下载语音识别模型
-> 3. 下载配置文件
-> 4. 检查文件完整性
->
-> 执行完成后，请按照提示配置 API 密钥。
-
-当你一切顺利完成以上操作后，继续操作[配置项目文件](#2-配置项目文件)
-
-### 1.2 手动部署
-
-如果懒人脚本无法正常运行，请按本章节1.2进行手动部署。
-
-#### 1.2.1 创建目录
-
-安装完后，你需要为这个项目找一个安放配置文件的目录，例如我们可以新建一个文件夹叫`xiaozhi-server`。
-
-创建好目录后，你需要在`xiaozhi-server`下面创建`data`文件夹和`models`文件夹，`models`下面还要再创建`SenseVoiceSmall`文件夹。
-
-最终目录结构如下所示：
-
-```
-xiaozhi-server
-  ├─ data
-  ├─ models
-     ├─ SenseVoiceSmall
-```
-
-#### 1.2.2 下载语音识别模型文件
-
-你需要下载语音识别的模型文件，因为本项目的默认语音识别用的是本地离线语音识别方案。可通过这个方式下载
-[跳转到下载语音识别模型文件](#模型文件)
-
-下载完后，回到本教程。
-
-#### 1.2.3 下载配置文件
-
-你需要下载两个配置文件：`docker-compose.yaml` 和 `config.yaml`。需要从项目仓库下载这两个文件。
-
-##### 1.2.3.1 下载 docker-compose.yaml
-
-用浏览器打开[这个链接](../main/xiaozhi-server/docker-compose.yml)。
-
-在页面的右侧找到名称为`RAW`按钮，在`RAW`按钮的旁边，找到下载的图标，点击下载按钮，下载`docker-compose.yml`文件。 把文件下载到你的
-`xiaozhi-server`中。
-
-下载完后，回到本教程继续往下。
-
-##### 1.2.3.2 创建 config.yaml
-
-用浏览器打开[这个链接](../main/xiaozhi-server/config.yaml)。
-
-在页面的右侧找到名称为`RAW`按钮，在`RAW`按钮的旁边，找到下载的图标，点击下载按钮，下载`config.yaml`文件。 把文件下载到你的
-`xiaozhi-server`下面的`data`文件夹中，然后把`config.yaml`文件重命名为`.config.yaml`。
-
-下载完配置文件后，我们确认一下整个`xiaozhi-server`里面的文件如下所示：
-
-```
-xiaozhi-server
-  ├─ docker-compose.yml
-  ├─ data
-    ├─ .config.yaml
-  ├─ models
-     ├─ SenseVoiceSmall
-       ├─ model.pt
-```
-
-如果你的文件目录结构也是上面的，就继续往下。如果不是，你就再仔细看看是不是漏操作了什么。
-
-## 2. 配置项目文件
-
-接下里，程序还不能直接运行，你需要配置一下，你到底使用的是什么模型。你可以看这个教程：
-[跳转到配置项目文件](#配置项目)
-
-配置完项目文件后，回到本教程继续往下。
-
-## 3. 执行docker命令
-
-打开命令行工具，使用`终端`或`命令行`工具 进入到你的`xiaozhi-server`，执行以下命令
-
-```
-docker-compose up -d
-```
-
-执行完后，再执行以下命令，查看日志信息。
-
-```
-docker logs -f xiaozhi-esp32-server
-```
-
-这时，你就要留意日志信息，可以根据这个教程，判断是否成功了。[跳转到运行状态确认](#运行状态确认)
-
-## 5. 版本升级操作
-
-如果后期想升级版本，可以这么操作
-
-5.1、备份好`data`文件夹中的`.config.yaml`文件，一些关键的配置到时复制到新的`.config.yaml`文件里。
-请注意是对关键密钥逐个复制，不要直接覆盖。因为新的`.config.yaml`文件可能有一些新的配置项，旧的`.config.yaml`文件不一定有。
-
-5.2、执行以下命令
-
-```
-docker stop xiaozhi-esp32-server
-docker rm xiaozhi-esp32-server
-docker stop xiaozhi-esp32-server-web
-docker rm xiaozhi-esp32-server-web
-docker rmi ghcr.nju.edu.cn/xinnan-tech/xiaozhi-esp32-server:server_latest
-docker rmi ghcr.nju.edu.cn/xinnan-tech/xiaozhi-esp32-server:web_latest
-```
-
-5.3、重新按docker方式部署
 
 # 方式二：本地源码只运行Server
 
@@ -181,7 +37,7 @@ conda install ffmpeg -y
 
 你先要下载本项目源码，源码可以通过`git clone`命令下载，如果你不熟悉`git clone`命令。
 
-你可以用浏览器打开这个地址`https://github.com/xinnan-tech/xiaozhi-esp32-server.git`
+你可以用浏览器打开这个地址`https://github.com/ThingsPanel/xiaozhi-esp32-server.git`
 
 打开完，找到页面中一个绿色的按钮，写着`Code`的按钮，点开它，然后你就看到`Download ZIP`的按钮。
 
@@ -198,8 +54,7 @@ pip install -r requirements.txt
 ```
 
 ## 3.下载语音识别模型文件
-
-你需要下载语音识别的模型文件，因为本项目的默认语音识别用的是本地离线语音识别方案。可通过这个方式下载
+如果ASR使用三方服务比如AliyunASR，可忽略这条，否则要使用本地语音识别FunASR，你需要下载语音识别的模型文件，因为本项目的默认语音识别用的是本地离线语音识别方案。可通过这个方式下载
 [跳转到下载语音识别模型文件](#模型文件)
 
 下载完后，回到本教程。
