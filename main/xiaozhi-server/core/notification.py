@@ -23,7 +23,7 @@ class MQTTNotificationListener:
 
         消息格式:
             {"notification":"消息内容"}
-            关联MQTT主题: service/esp32/devices/telemetry/control/#设备编号#
+            关联MQTT主题: service/esp32/devices/command/{设备编号}/+
         """
         self.config = config
         self.device_id = device_id
@@ -44,7 +44,7 @@ class MQTTNotificationListener:
         self.broker_port = self.mqtt_config.get('port', 1883)
         self.username = self.mqtt_config.get('username')
         self.password = self.mqtt_config.get('password')
-        self.topic = self.mqtt_config.get('topic', f'service/esp32/devices/telemetry/control/{device_id}')
+        self.topic = self.mqtt_config.get('topic', f'service/esp32/devices/command/{device_id}/+')
         self.client_id = "ESP_CLIENT_" + device_id
         self.keepalive = self.mqtt_config.get('keepalive', 60)
         
