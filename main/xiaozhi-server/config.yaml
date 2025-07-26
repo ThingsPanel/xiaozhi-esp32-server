@@ -95,6 +95,13 @@ wakeup_words:
   - "小滨小滨"
   - "小冰小冰"
 
+mqtt:
+  host: 127.0.0.1
+  port: 1883
+  username: root
+  password: root
+  keepalive: 60
+
 # 插件的基础配置
 plugins:
   # 获取天气插件的配置，这里填写你的api_key
