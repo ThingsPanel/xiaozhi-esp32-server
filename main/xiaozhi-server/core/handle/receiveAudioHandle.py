@@ -1,7 +1,7 @@
 import time
 import copy
 from core.utils.util import remove_punctuation_and_length
-from core.handle.sendAudioHandle import send_stt_message
+from core.handle.sendAudioHandle import send_stt_message, send_tts_message
 from core.handle.intentHandler import handle_user_intent
 from core.utils.output_counter import check_device_output_limit
 from core.handle.reportHandle import enqueue_asr_report
@@ -101,7 +101,8 @@ async def no_voice_close_connect(conn):
             end_prompt = conn.config.get("end_prompt", {})
             if end_prompt and end_prompt.get("enable", True) is False:
                 conn.logger.bind(tag=TAG).info("结束对话，无需发送结束提示语")
-                await conn.close()
+                await send_tts_message(conn, "idle", None)
+                # await conn.close()
                 return
             prompt = end_prompt.get("prompt")
             if not prompt:

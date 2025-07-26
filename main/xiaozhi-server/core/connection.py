@@ -25,7 +25,7 @@ from core.utils.util import (
     check_asr_update,
 )
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
-from core.handle.sendAudioHandle import sendAudioMessage
+from core.handle.sendAudioHandle import send_tts_message, sendAudioMessage
 from core.handle.receiveAudioHandle import handleAudioMessage
 from core.handle.functionHandler import FunctionHandler
 from plugins_func.register import Action, ActionResponse
@@ -34,6 +34,7 @@ from core.mcp.manager import MCPManager
 from config.config_loader import get_private_config_from_api
 from core.utils.output_counter import add_device_output
 from core.handle.reportHandle import enqueue_tts_report, report
+from core.notification import MQTTNotificationListener
 
 TAG = __name__
 
@@ -146,6 +147,9 @@ class ConnectionHandler:
 
         self.audio_format = "opus"
 
+        # MQTT通知监听器
+        self.mqtt_listener = None
+
     async def handle_connection(self, ws):
         try:
             # 获取并验证headers
@@ -217,6 +221,12 @@ class ConnectionHandler:
             )
             self.audio_play_priority_thread.start()
 
+            # 初始化MQTT通知监听器
+            self._initialize_mqtt_listener()
+            
+            # 启动异步测试程序，每5秒播报一次通知
+            # asyncio.create_task(self._test_notification_loop())
+
             try:
                 async for message in self.websocket:
                     await self._route_message(message)
@@ -264,6 +274,9 @@ class ConnectionHandler:
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"保存记忆失败: {e}")
         finally:
+            # 停止MQTT通知监听器
+            if self.mqtt_listener:
+                self.mqtt_listener.stop()
             # 立即关闭连接，不等待记忆保存完成
             await self.close(ws)
             # 更新设备状态为离线
@@ -798,6 +811,26 @@ class ConnectionHandler:
         )
 
         return True
+    
+    # 主动通知, 设备播报语音
+    def chat_notification(self, query, tool_call=False):
+        self.logger.bind(tag=TAG).debug(f"Chat notification start: {query}")
+        """Chat with function calling for intent detection using streaming"""
+
+        text_index = 0
+        self.recode_first_last_text(query, text_index)
+        future = self.executor.submit(
+            self.speak_and_play, query, text_index
+        )
+        self.tts_queue.put((future, text_index))
+
+        self.llm_finish_task = True
+        self.logger.bind(tag=TAG).debug(
+            json.dumps(self.dialogue.get_llm_dialogue(), indent=4, ensure_ascii=False)
+        )
+        
+        return True
+        
 
     def _handle_mcp_tool_call(self, function_call_data):
         function_arguments = function_call_data["arguments"]
@@ -1113,10 +1146,54 @@ class ConnectionHandler:
                 await asyncio.sleep(self.timeout_seconds)
                 if not self.stop_event.is_set():
                     self.logger.bind(tag=TAG).info("连接超时，准备关闭")
-                    await self.close(self.websocket)
+                    await send_tts_message(self, "idle", None)
+                    # await self.close(self.websocket)
                     break
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"超时检查任务出错: {e}")
+
+    async def _handle_mqtt_notification(self, message: str, priority: str, notification_type: str):
+        """处理MQTT通知的回调函数"""
+        try:
+            self.logger.bind(tag=TAG).info(f"处理MQTT通知: {message} (优先级: {priority})")
+            
+            # 所有通知都通过 chat_notification 播报
+            await send_tts_message(self, "idle", None)
+            self.executor.submit(self.chat_notification, "通知: " + message)
+                
+        except Exception as e:
+            self.logger.bind(tag=TAG).error(f"处理MQTT通知失败: {e}")
+
+    def _initialize_mqtt_listener(self):
+        """初始化MQTT通知监听器"""
+        try:
+            if 'mqtt' in self.config:
+                self.mqtt_listener = MQTTNotificationListener(
+                    config=self.config,
+                    device_id=self.device_id,
+                    notification_callback=self._handle_mqtt_notification
+                )
+                self.mqtt_listener.start()
+                self.logger.bind(tag=TAG).info("MQTT通知监听器初始化成功")
+            else:
+                self.logger.bind(tag=TAG).info("未配置MQTT，跳过通知监听器初始化")
+        except Exception as e:
+            self.logger.bind(tag=TAG).error(f"初始化MQTT通知监听器失败: {e}")
+
+    async def _test_notification_loop(self):
+        """异步测试程序，每2秒播报一次通知"""
+        index = 1
+        while not self.stop_event.is_set():
+            try:
+                await asyncio.sleep(5)
+                if not self.stop_event.is_set():
+                    self.logger.bind(tag=TAG).info("MQTT通知测试...")
+                    await send_tts_message(self, "idle", None)
+                    self.executor.submit(self.chat_notification, str(index) + "个苹果")
+                    self.logger.bind(tag=TAG).info("通知测试发送成功")
+                    index += 1
+            except Exception as e:
+                self.logger.bind(tag=TAG).error(f"通知测试程序出错: {e}")
 
 
 def filter_sensitive_info(config: dict) -> dict:

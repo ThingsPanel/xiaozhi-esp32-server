@@ -1,7 +1,7 @@
 from config.logger import setup_logging
 import json
 import uuid
-from core.handle.sendAudioHandle import send_stt_message
+from core.handle.sendAudioHandle import send_stt_message, send_tts_message
 from core.handle.helloHandle import checkWakeupWords
 from core.utils.util import remove_punctuation_and_length
 from core.utils.dialogue import Message
@@ -38,7 +38,8 @@ async def check_direct_exit(conn, text):
         if text == cmd:
             conn.logger.bind(tag=TAG).info(f"识别到明确的退出命令: {text}")
             await send_stt_message(conn, text)
-            await conn.close()
+            await send_tts_message(conn, "idle", None)
+            # await conn.close()
             return True
     return False
 
