@@ -7,7 +7,7 @@ from aiohttp import web
 from config.logger import setup_logging
 from core.connection import ConnectionHandler
 from core.utils.util import get_local_ip, initialize_modules
-from core.utils.tp import authenticate_device, update_device_online_status
+from core.utils.tp import authenticate_device, update_device_online_status, get_device_config_by_number
 
 TAG = __name__
 
@@ -160,10 +160,20 @@ class SimpleOtaServer:
                         
                 # 设备未认证时成功时
                 if not auth_result:
-                    self.update_device_status(device_id, "pending")
+                    self.update_device_fields(device_id, {"status": "pending"})
                 else:
                     # 设备认证成功，更新设备状态为activated
-                    self.update_device_status(device_id, "activated")
+                    self.update_device_fields(device_id, {"status": "activated"})
+                    # 如果external_id为空，则从TP获取
+                    if device_info.get("external_id") is None or device_info.get("external_id") == "":
+                        self.logger.bind(tag=TAG).info(f"同步{device_id}的external_id")
+                        # 调用get_device_config_by_number来获取设备配置信息中的id，然后更新到update_device_fields(device_id, {"external_id": "new_external_id"})
+                        success, device_config = await get_device_config_by_number(device_id)
+                        if success:
+                            self.update_device_fields(device_id, {"external_id": device_config.get('id')})
+                        else:
+                            self.logger.bind(tag=TAG).info(f"{device_id}获取TP Device ID失败")
+
 
             # 返回信息输出日志
             response = web.Response(
@@ -342,9 +352,27 @@ class SimpleOtaServer:
                     verify_code TEXT NOT NULL,
                     status TEXT DEFAULT 'pending',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    external_id TEXT,
+                    external_key TEXT
                 )
             ''')
+            
+            # 检查并添加 external_id 字段（如果不存在）
+            try:
+                db.execute("SELECT external_id FROM devices LIMIT 1")
+            except sqlite3.OperationalError:
+                # external_id 字段不存在，添加它
+                self.logger.bind(tag=TAG).info("为 devices 表添加 external_id 字段")
+                db.execute("ALTER TABLE devices ADD COLUMN external_id TEXT")
+            
+            # 检查并添加 external_key 字段（如果不存在）
+            try:
+                db.execute("SELECT external_key FROM devices LIMIT 1")
+            except sqlite3.OperationalError:
+                # external_key 字段不存在，添加它
+                self.logger.bind(tag=TAG).info("为 devices 表添加 external_key 字段")
+                db.execute("ALTER TABLE devices ADD COLUMN external_key TEXT")
             
             # 为 verify_code 创建唯一索引
             db.execute('''
@@ -361,7 +389,7 @@ class SimpleOtaServer:
             raise
         finally:
             if 'conn' in locals():
-                conn.close() 
+                conn.close()
 
     def check_or_create_device(self, device_id: str, template_secret: str, device_name: str = None) -> dict:
         """检查设备是否在数据库中，如果不存在则创建
@@ -386,7 +414,7 @@ class SimpleOtaServer:
                 self.logger.bind(tag=TAG).info(f"设备 {device_id} 已存在于数据库中")
                 # 将查询结果转换为字典
                 columns = ['device_id', 'device_name', 'description', 'template_secret', 
-                          'verify_code', 'status']
+                          'verify_code', 'status', 'created_at', 'updated_at', 'external_id', 'external_key']
                 return dict(zip(columns, device_info))
             else:
                 # 设备不存在，创建新设备
@@ -431,7 +459,8 @@ class SimpleOtaServer:
                     'description': description,
                     'template_secret': template_secret,
                     'verify_code': verify_code,
-                    'status': 'pending'
+                    'status': 'pending',
+                    'external_id': None
                 }
                 
         except Exception as e:
@@ -441,39 +470,83 @@ class SimpleOtaServer:
             if 'conn' in locals():
                 conn.close()
 
-    def update_device_status(self, device_id: str, status: str) -> bool:
-        """更新设备状态
+    def update_device_fields(self, device_id: str, fields: dict) -> bool:
+        """灵活更新设备字段
         
         Args:
             device_id: 设备ID
-            status: 新状态
+            fields: 要更新的字段字典，格式为 {"字段名": "新值"}
             
         Returns:
             bool: 更新是否成功
+            
+        Example:
+            # 更新单个字段
+            update_device_fields("device123", {"external_id": "new_external_id"})
+            
+            # 更新多个字段
+            update_device_fields("device123", {
+                "device_name": "新设备名称",
+                "description": "新描述",
+                "external_id": "new_external_id"
+            })
+            
+            # 更新状态（替代原来的update_device_status）
+            update_device_fields("device123", {"status": "activated"})
         """
         try:
+            if not fields:
+                self.logger.bind(tag=TAG).warning("没有提供要更新的字段")
+                return False
+                
             conn = sqlite3.connect(self.db_path)
             db = conn.cursor()
             
-            # 更新设备状态和更新时间
-            db.execute('''
-                UPDATE devices 
-                SET status = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE device_id = ?
-            ''', (status, device_id))
+            # 构建动态SQL语句
+            set_clauses = []
+            values = []
+            
+            # 验证字段名是否合法（防止SQL注入）
+            allowed_fields = {
+                'device_name', 'description', 'template_secret', 
+                'verify_code', 'status', 'external_id'
+            }
+            
+            for field_name, field_value in fields.items():
+                if field_name not in allowed_fields:
+                    self.logger.bind(tag=TAG).warning(f"不允许更新字段: {field_name}")
+                    continue
+                    
+                set_clauses.append(f"{field_name} = ?")
+                values.append(field_value)
+            
+            if not set_clauses:
+                self.logger.bind(tag=TAG).warning("没有有效的字段需要更新")
+                return False
+            
+            # 添加更新时间
+            set_clauses.append("updated_at = CURRENT_TIMESTAMP")
+            
+            # 构建完整的SQL语句
+            sql = f"UPDATE devices SET {', '.join(set_clauses)} WHERE device_id = ?"
+            values.append(device_id)
+            
+            # 执行更新
+            db.execute(sql, values)
             
             # 检查是否有行被更新
             if db.rowcount > 0:
                 conn.commit()
-                self.logger.bind(tag=TAG).info(f"设备 {device_id} 状态已更新为: {status}")
+                self.logger.bind(tag=TAG).info(f"设备 {device_id} 字段更新成功: {list(fields.keys())}")
                 return True
             else:
-                self.logger.bind(tag=TAG).warning(f"设备 {device_id} 不存在，状态更新失败")
+                self.logger.bind(tag=TAG).warning(f"设备 {device_id} 不存在，字段更新失败")
                 return False
             
         except Exception as e:
-            self.logger.bind(tag=TAG).error(f"更新设备状态失败: {str(e)}")
+            self.logger.bind(tag=TAG).error(f"更新设备字段失败: {str(e)}")
             return False
         finally:
             if 'conn' in locals():
                 conn.close()
+    

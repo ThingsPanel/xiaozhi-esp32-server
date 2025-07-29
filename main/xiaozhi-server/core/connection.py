@@ -12,7 +12,7 @@ import traceback
 import threading
 import websockets
 from typing import Dict, Any
-from core.utils.tp import update_device_online_status
+from core.utils.tp import update_device_online_status, get_local_device_info
 from plugins_func.loadplugins import auto_import_modules
 from config.logger import setup_logging
 from core.utils.dialogue import Message, Dialogue
@@ -71,6 +71,7 @@ class ConnectionHandler:
         self.websocket = None
         self.headers = None
         self.device_id = None
+        self.external_id = None
         self.client_ip = None
         self.client_ip_info = {}
         self.prompt = None
@@ -196,6 +197,12 @@ class ConnectionHandler:
                     update_device_online_status(device_id, True),
                     self.loop
                 )
+                # 获取设备的external_id
+                device_info = await get_local_device_info(self, device_id)
+                if device_info and device_info.get('external_id'):
+                    self.external_id = device_info.get('external_id')
+                else:
+                    self.external_id = device_id  # 如果没有external_id，使用原始device_id
 
             # 启动超时检查任务
             self.timeout_task = asyncio.create_task(self._check_timeout())
@@ -1171,6 +1178,7 @@ class ConnectionHandler:
                 self.mqtt_listener = MQTTNotificationListener(
                     config=self.config,
                     device_id=self.device_id,
+                    external_id=self.external_id,
                     notification_callback=self._handle_mqtt_notification
                 )
                 self.mqtt_listener.start()

@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import aiohttp
 import asyncio
 from typing import Optional, Dict, Any
@@ -148,6 +149,57 @@ class ThingsPanelClient:
             self.logger.bind(tag=TAG).error(f"设备状态更新响应解析错误: {str(e)}")
             raise Exception(f"设备状态更新响应解析错误: {str(e)}")
 
+    async def get_device_config(self, device_number: str) -> tuple[bool, Dict[str, Any]]:
+        """
+        获取设备配置
+        
+        Args:
+            device_number: 设备编号
+            
+        Returns:
+            tuple: (是否成功, 设备配置数据)
+            
+        Raises:
+            Exception: 网络请求失败时抛出异常
+        """
+        url = f"{self.base_url}/plugin/device/config"
+
+        # 构建请求头
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        if self.api_token:
+            headers['x-token'] = self.api_token
+            
+        # 构建请求体
+        payload = {
+            'device_number': device_number
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=payload) as response:
+                    response_data = await response.json()
+                    
+                    self.logger.bind(tag=TAG).info(f"获取设备配置请求: {payload}")
+                    self.logger.bind(tag=TAG).info(f"获取设备配置响应: {response_data}")
+                    
+                    if response.status == 200 and response_data.get('code') == 200:
+                        device_config = response_data.get('data', {})
+                        self.logger.bind(tag=TAG).info(f"成功获取设备 {device_number} 的配置")
+                        return True, device_config
+                    else:
+                        error_msg = response_data.get('message', f'HTTP {response.status}')
+                        self.logger.bind(tag=TAG).warning(f"获取设备配置失败: {error_msg}")
+                        return False, {}
+                        
+        except aiohttp.ClientError as e:
+            self.logger.bind(tag=TAG).error(f"获取设备配置网络错误: {str(e)}")
+            raise Exception(f"获取设备配置网络错误: {str(e)}")
+        except json.JSONDecodeError as e:
+            self.logger.bind(tag=TAG).error(f"获取设备配置响应解析错误: {str(e)}")
+            raise Exception(f"获取设备配置响应解析错误: {str(e)}")
+
 
 # 便利函数，用于简化使用
 async def authenticate_device(template_secret: str, 
@@ -176,3 +228,53 @@ async def update_device_online_status(device_number: str, is_online: bool) -> Di
     """
     client = ThingsPanelClient()
     return await client.update_device_status(device_number, is_online)
+
+# 获取设备配置
+async def get_device_config_by_number(device_number: str) -> tuple:
+    """
+    通过设备编号获取设备配置
+    
+    Args:
+        device_number: 设备编号
+        
+    Returns:
+        tuple: (是否成功, 设备配置数据)
+    """
+    client = ThingsPanelClient()
+    return await client.get_device_config(device_number)
+
+
+# 新增一个公共方法用来获取设备信息
+async def get_local_device_info(self, device_id: str) -> dict:
+    """获取设备信息
+    
+    Args:
+        device_id: 设备ID
+        
+    Returns:
+        dict: 设备信息字典，如果失败则返回None
+    """ 
+    try:
+        conn = sqlite3.connect("data/data.db")
+        db = conn.cursor()
+        
+        # 查询设备信息
+        db.execute("SELECT * FROM devices WHERE device_id = ?", (device_id,))   
+        device_info = db.fetchone()
+        
+        if device_info:
+            # 定义列名，注意顺序
+            columns = ['device_id', 'device_name', 'description', 'template_secret', 
+                        'verify_code', 'status', 'created_at', 'updated_at', 'external_id', 'external_key']
+            self.logger.bind(tag=TAG).info(f"设备 {device_id} 信息获取成功")
+            return dict(zip(columns, device_info))
+        else:
+            self.logger.bind(tag=TAG).warning(f"设备 {device_id} 不存在")
+            return None
+            
+    except Exception as e:
+        self.logger.bind(tag=TAG).error(f"获取设备信息失败: {str(e)}")
+        return None
+    finally:
+        if 'conn' in locals():
+            conn.close()

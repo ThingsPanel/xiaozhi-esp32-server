@@ -12,7 +12,7 @@ TAG = "mqtt_notification"
 class MQTTNotificationListener:
     """MQTT通知监听器"""
     
-    def __init__(self, config: Dict[str, Any], device_id: str, notification_callback: Callable):
+    def __init__(self, config: Dict[str, Any], device_id: str, external_id: str, notification_callback: Callable):
         """
         初始化MQTT通知监听器
         
@@ -38,13 +38,15 @@ class MQTTNotificationListener:
         self.mqtt_config = config.get('mqtt', {})
         self.stop_event = threading.Event()
         self.mqtt_thread = None
+
+        # 通过device_id获取设备信息
         
         # 配置参数
         self.broker_host = self.mqtt_config.get('host', '127.0.0.1')
         self.broker_port = self.mqtt_config.get('port', 1883)
         self.username = self.mqtt_config.get('username')
         self.password = self.mqtt_config.get('password')
-        self.topic = self.mqtt_config.get('topic', f'service/esp32/devices/command/{device_id}/+')
+        self.topic = self.mqtt_config.get('topic', f'service/esp32/devices/command/{external_id}/+')
         self.client_id = "ESP_CLIENT_" + device_id
         self.keepalive = self.mqtt_config.get('keepalive', 60)
         
@@ -157,7 +159,7 @@ class MQTTNotificationListener:
             # 尝试解析为JSON格式
             try:
                 data = json.loads(payload)
-                message = data.get('notification', payload)
+                message = data.get('params', {}).get('message', payload)
                 priority = data.get('priority', 'normal')
                 notification_type = data.get('type', 'text')
                 
