@@ -164,15 +164,28 @@ class SimpleOtaServer:
                 else:
                     # 设备认证成功，更新设备状态为activated
                     self.update_device_fields(device_id, {"status": "activated"})
-                    # 如果external_id为空，则从TP获取
-                    if device_info.get("external_id") is None or device_info.get("external_id") == "":
-                        self.logger.bind(tag=TAG).info(f"同步{device_id}的external_id")
-                        # 调用get_device_config_by_number来获取设备配置信息中的id，然后更新到update_device_fields(device_id, {"external_id": "new_external_id"})
-                        success, device_config = await get_device_config_by_number(device_id)
-                        if success:
-                            self.update_device_fields(device_id, {"external_id": device_config.get('id')})
+                    # 强制同步external_key
+                    self.logger.bind(tag=TAG).info(f"同步{device_id}的external_key")
+                    success, device_config = await get_device_config_by_number(device_id)
+                    if success:
+                        # 从tenant_user_api_keys数组中取第一个api_key
+                        tenant_user_api_keys = device_config.get('tenant_user_api_keys', [])
+                        if tenant_user_api_keys and len(tenant_user_api_keys) > 0:
+                            first_api_key = tenant_user_api_keys[0].get('api_key')
+                            if first_api_key:
+                                self.update_device_fields(device_id, {"external_key": first_api_key})
+                                self.logger.bind(tag=TAG).info(f"成功更新设备 {device_id} 的external_key为: {first_api_key}")
+                            else:
+                                self.logger.bind(tag=TAG).warning(f"第一个API key为空: {tenant_user_api_keys[0]}")
                         else:
-                            self.logger.bind(tag=TAG).info(f"{device_id}获取TP Device ID失败")
+                            self.logger.bind(tag=TAG).warning(f"设备配置中未找到tenant_user_api_keys: {device_config}")
+                        
+                        # 如果external_id为空，则自动同步
+                        if device_info.get("external_id") is None or device_info.get("external_id") == "":
+                            self.logger.bind(tag=TAG).info(f"同步{device_id}的external_id")
+                            self.update_device_fields(device_id, {"external_id": device_config.get('id')})
+                    else:
+                        self.logger.bind(tag=TAG).info(f"{device_id}获取TP Device Config失败")
 
 
             # 返回信息输出日志
@@ -509,7 +522,7 @@ class SimpleOtaServer:
             # 验证字段名是否合法（防止SQL注入）
             allowed_fields = {
                 'device_name', 'description', 'template_secret', 
-                'verify_code', 'status', 'external_id'
+                'verify_code', 'status', 'external_id', 'external_key'
             }
             
             for field_name, field_value in fields.items():

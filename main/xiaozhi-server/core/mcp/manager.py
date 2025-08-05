@@ -55,6 +55,11 @@ class MCPManager:
                 )
                 continue
 
+            # 动态加载thingspanel的api key
+            if name == "thingspanel":
+                # 取到connection中的external_key
+                srv_config["env"]["THINGSPANEL_API_KEY"] = self.conn.external_key
+
             try:
                 client = MCPClient(srv_config)
                 await client.initialize()
@@ -110,7 +115,7 @@ class MCPManager:
             ValueError: 工具未找到时抛出
         """
         self.conn.logger.bind(tag=TAG).info(
-            f"Executing tool {tool_name} with arguments: {arguments}"
+            f"Executing tool {tool_name} with arguments: {arguments}, key: {self.conn.external_key}"
         )
         for client in self.client.values():
             if client.has_tool(tool_name):

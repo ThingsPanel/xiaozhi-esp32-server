@@ -72,6 +72,7 @@ class ConnectionHandler:
         self.headers = None
         self.device_id = None
         self.external_id = None
+        self.external_key = None
         self.client_ip = None
         self.client_ip_info = {}
         self.prompt = None
@@ -201,8 +202,10 @@ class ConnectionHandler:
                 device_info = await get_local_device_info(self, device_id)
                 if device_info and device_info.get('external_id'):
                     self.external_id = device_info.get('external_id')
+                    self.external_key = device_info.get('external_key')
                 else:
                     self.external_id = device_id  # 如果没有external_id，使用原始device_id
+                    self.external_key = "NoAccess"
 
             # 启动超时检查任务
             self.timeout_task = asyncio.create_task(self._check_timeout())
