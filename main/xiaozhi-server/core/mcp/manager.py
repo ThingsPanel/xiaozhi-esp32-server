@@ -57,8 +57,13 @@ class MCPManager:
 
             # 动态加载thingspanel的api key
             if name == "thingspanel":
-                # 取到connection中的external_key
-                srv_config["env"]["THINGSPANEL_API_KEY"] = self.conn.external_key
+                # 取到connection中的external_key，只有在有值时才设置
+                external_key = self.conn.external_key
+                if external_key:
+                    srv_config["env"]["THINGSPANEL_API_KEY"] = external_key
+                    self.conn.logger.bind(tag=TAG).info(f"为 thingspanel 服务设置 API_KEY: {external_key[:10]}...")
+                else:
+                    self.conn.logger.bind(tag=TAG).warning("external_key 为空，跳过设置 THINGSPANEL_API_KEY，使用配置文件中的key")
 
             try:
                 client = MCPClient(srv_config)
