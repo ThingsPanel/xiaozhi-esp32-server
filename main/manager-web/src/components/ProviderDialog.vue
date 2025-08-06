@@ -1,5 +1,6 @@
 <template>
-  <el-dialog :visible="visible" @update:visible="handleVisibleChange" width="57%" center custom-class="custom-dialog" :show-close="false" class="center-dialog">
+  <el-dialog :visible="visible" :close-on-click-modal="false" @update:visible="handleVisibleChange" width="57%" center custom-class="custom-dialog"
+    :show-close="false" class="center-dialog">
 
     <div style="margin: 0 18px; text-align: left; padding: 10px; border-radius: 10px;">
       <div style="font-size: 30px; color: #3d4566; margin-top: -15px; margin-bottom: 20px; text-align: center;">
@@ -10,15 +11,15 @@
 
       <el-form :model="form" label-width="100px" :rules="rules" ref="form" class="custom-form">
         <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-          <el-form-item label="类别" prop="model_type" style="flex: 1;">
-            <el-select v-model="form.model_type" placeholder="请选择类别" class="custom-input-bg" style="width: 100%;">
+          <el-form-item label="类别" prop="modelType" style="flex: 1;">
+            <el-select v-model="form.modelType" placeholder="请选择类别" class="custom-input-bg" style="width: 100%;">
               <el-option v-for="item in modelTypes" :key="item.value" :label="item.label" :value="item.value">
               </el-option>
             </el-select>
           </el-form-item>
 
-          <el-form-item label="供应器编码" prop="provider_code" style="flex: 1;">
-            <el-input v-model="form.provider_code" placeholder="请输入供应器编码" class="custom-input-bg"></el-input>
+          <el-form-item label="编码" prop="providerCode" style="flex: 1;">
+            <el-input v-model="form.providerCode" placeholder="请输入供应器编码" class="custom-input-bg"></el-input>
           </el-form-item>
         </div>
 
@@ -27,20 +28,24 @@
             <el-input v-model="form.name" placeholder="请输入供应器名称" class="custom-input-bg"></el-input>
           </el-form-item>
           <el-form-item label="排序" prop="sort" style="flex: 1;">
-            <el-input-number v-model="form.sort" :min="0" controls-position="right" class="custom-input-bg" style="width: 100%;"></el-input-number>
+            <el-input-number v-model="form.sort" :min="0" controls-position="right" class="custom-input-bg"
+              style="width: 100%;"></el-input-number>
           </el-form-item>
         </div>
 
         <div style="font-size: 20px; font-weight: bold; color: #3d4566; margin-bottom: 15px;">
           字段配置
           <div style="display: inline-block; float: right;">
-            <el-button type="primary" @click="addField" size="small" style="background: #5bc98c; border: none;" :disabled="hasIncompleteFields">
+            <el-button type="primary" @click="addField" size="small" style="background: #5bc98c; border: none;"
+              :disabled="hasIncompleteFields">
               添加
             </el-button>
-            <el-button type="primary" @click="toggleSelectAllFields" size="small" style="background: #5f70f3; border: none; margin-left: 10px;">
+            <el-button type="primary" @click="toggleSelectAllFields" size="small"
+              style="background: #5f70f3; border: none; margin-left: 10px;">
               {{ isAllFieldsSelected ? '取消全选' : '全选' }}
             </el-button>
-            <el-button type="danger" @click="batchRemoveFields" size="small" style="background: red; border: none; margin-left: 10px;">
+            <el-button type="danger" @click="batchRemoveFields" size="small"
+              style="background: red; border: none; margin-left: 10px;">
               批量删除
             </el-button>
           </div>
@@ -82,6 +87,7 @@
                     <el-option label="数字" value="number"></el-option>
                     <el-option label="布尔值" value="boolean"></el-option>
                     <el-option label="字典" value="dict"></el-option>
+                    <el-option label="分号分割的列表" value="array"></el-option>
                   </el-select>
                 </template>
                 <template v-else>
@@ -92,10 +98,10 @@
             <el-table-column label="默认值">
               <template slot-scope="scope">
                 <template v-if="scope.row.editing">
-                  <el-input v-model="scope.row.default_value" placeholder="请输入默认值"></el-input>
+                  <el-input v-model="scope.row.default" placeholder="请输入默认值"></el-input>
                 </template>
                 <template v-else>
-                  {{ scope.row.default_value }}
+                  {{ scope.row.default }}
                 </template>
               </template>
             </el-table-column>
@@ -135,9 +141,9 @@ export default {
     return {
       saving: false,
       rules: {
-        model_type: [{required: true, message: '请选择类别', trigger: 'change'}],
-        provider_code: [{required: true, message: '请输入供应器编码', trigger: 'blur'}],
-        name: [{required: true, message: '请输入供应器名称', trigger: 'blur'}]
+        modelType: [{ required: true, message: '请选择类别', trigger: 'change' }],
+        providerCode: [{ required: true, message: '请输入供应器编码', trigger: 'blur' }],
+        name: [{ required: true, message: '请输入供应器名称', trigger: 'blur' }]
       },
       isAllFieldsSelected: false,
       tableKey: 0 // 用于强制表格重新渲染
@@ -156,7 +162,8 @@ export default {
         'string': '字符串',
         'number': '数字',
         'boolean': '布尔值',
-        'dict': '字典'
+        'dict': '字典',
+        'array': '分号分割的列表'
       };
       return typeMap[type];
     },
@@ -215,7 +222,7 @@ export default {
         key: '',
         label: '',
         type: 'string',
-        default_value: '',
+        default: '',
         selected: false,
         editing: true
       });
@@ -419,11 +426,12 @@ export default {
   display: none;
 }
 
-.el-table th, .el-table td {
+.el-table th,
+.el-table td {
   padding: 8px 0;
 }
 
-.el-button.is-circle{
+.el-button.is-circle {
   border-radius: 2px;
 }
 </style>

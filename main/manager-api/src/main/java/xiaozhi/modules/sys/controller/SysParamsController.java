@@ -59,7 +59,7 @@ public class SysParamsController {
             @Parameter(name = Constant.LIMIT, description = "每页显示记录数", in = ParameterIn.QUERY, required = true, ref = "int"),
             @Parameter(name = Constant.ORDER_FIELD, description = "排序字段", in = ParameterIn.QUERY, ref = "String"),
             @Parameter(name = Constant.ORDER, description = "排序方式，可选值(asc、desc)", in = ParameterIn.QUERY, ref = "String"),
-            @Parameter(name = "paramCode", description = "参数编码", in = ParameterIn.QUERY, ref = "String")
+            @Parameter(name = "paramCode", description = "参数编码或参数备注", in = ParameterIn.QUERY, ref = "String")
     })
     @RequiresPermissions("sys:role:superAdmin")
     public Result<PageData<SysParamsDTO>> page(@Parameter(hidden = true) @RequestParam Map<String, Object> params) {
@@ -104,6 +104,12 @@ public class SysParamsController {
         // 验证OTA地址
         validateOtaUrl(dto.getParamCode(), dto.getParamValue());
 
+        // 验证MCP地址
+        validateMcpUrl(dto.getParamCode(), dto.getParamValue());
+
+        //
+        validateVoicePrint(dto.getParamCode(), dto.getParamValue());
+
         sysParamsService.update(dto);
         configService.getConfig(false);
         return new Result<Void>();
@@ -111,7 +117,7 @@ public class SysParamsController {
 
     /**
      * 验证WebSocket地址列表
-     * 
+     *
      * @param urls WebSocket地址列表，以分号分隔
      * @return 验证结果
      */
@@ -141,6 +147,19 @@ public class SysParamsController {
                 }
             }
         }
+    }
+
+    @PostMapping("/delete")
+    @Operation(summary = "删除")
+    @LogOperation("删除")
+    @RequiresPermissions("sys:role:superAdmin")
+    public Result<Void> delete(@RequestBody String[] ids) {
+        // 效验数据
+        AssertUtils.isArrayEmpty(ids, "id");
+
+        sysParamsService.delete(ids);
+        configService.getConfig(false);
+        return new Result<Void>();
     }
 
     /**
@@ -183,16 +202,66 @@ public class SysParamsController {
         }
     }
 
-    @PostMapping("/delete")
-    @Operation(summary = "删除")
-    @LogOperation("删除")
-    @RequiresPermissions("sys:role:superAdmin")
-    public Result<Void> delete(@RequestBody String[] ids) {
-        // 效验数据
-        AssertUtils.isArrayEmpty(ids, "id");
+    private void validateMcpUrl(String paramCode, String url) {
+        if (!paramCode.equals(Constant.SERVER_MCP_ENDPOINT)) {
+            return;
+        }
+        if (StringUtils.isBlank(url) || url.equals("null")) {
+            throw new RenException("MCP地址不能为空");
+        }
+        if (url.contains("localhost") || url.contains("127.0.0.1")) {
+            throw new RenException("MCP地址不能使用localhost或127.0.0.1");
+        }
+        if (!url.toLowerCase().contains("key")) {
+            throw new RenException("不是正确的MCP地址");
+        }
 
-        sysParamsService.delete(ids);
-        configService.getConfig(false);
-        return new Result<Void>();
+        try {
+            // 发送GET请求
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            if (response.getStatusCode() != HttpStatus.OK) {
+                throw new RenException("MCP接口访问失败，状态码：" + response.getStatusCode());
+            }
+            // 检查响应内容是否包含mcp相关信息
+            String body = response.getBody();
+            if (body == null || !body.contains("success")) {
+                throw new RenException("MCP接口返回内容格式不正确，可能不是一个真实的MCP接口");
+            }
+        } catch (Exception e) {
+            throw new RenException("MCP接口验证失败：" + e.getMessage());
+        }
+    }
+    // 验证声纹接口地址是否正常
+    private void validateVoicePrint(String paramCode, String url) {
+        if (!paramCode.equals(Constant.SERVER_VOICE_PRINT)) {
+            return;
+        }
+        if (StringUtils.isBlank(url) || url.equals("null")) {
+            throw new RenException("声纹接口地址不能为空");
+        }
+        if (url.contains("localhost") || url.contains("127.0.0.1")) {
+            throw new RenException("声纹接口地址不能使用localhost或127.0.0.1");
+        }
+        if (!url.toLowerCase().contains("key")) {
+            throw new RenException("不是正确的声纹接口地址");
+        }
+        // 验证URL格式
+        if (!url.toLowerCase().startsWith("http")) {
+            throw new RenException("声纹接口地址必须以http或https开头");
+        }
+        try {
+            // 发送GET请求
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            if (response.getStatusCode() != HttpStatus.OK) {
+                throw new RenException("声纹接口访问失败，状态码：" + response.getStatusCode());
+            }
+            // 检查响应内容
+            String body = response.getBody();
+            if (body == null || !body.contains("healthy")) {
+                throw new RenException("声纹接口返回内容格式不正确，可能不是一个真实的MCP接口");
+            }
+        } catch (Exception e) {
+            throw new RenException("声纹接口验证失败：" + e.getMessage());
+        }
     }
 }

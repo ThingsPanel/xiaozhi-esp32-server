@@ -133,6 +133,10 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void changePasswordDirectly(Long userId, String password) {
+        // 新密码强度
+        if (!isStrongPassword(password)) {
+            throw new RenException(ErrorCode.PASSWORD_WEAK_ERROR);
+        }
         SysUserEntity sysUserEntity = new SysUserEntity();
         sysUserEntity.setId(userId);
         sysUserEntity.setPassword(PasswordUtils.encode(password));
@@ -159,7 +163,7 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
         params.put(Constant.LIMIT, dto.getLimit());
         IPage<SysUserEntity> page = baseDao.selectPage(
                 getPage(params, "id", true),
-                new QueryWrapper<SysUserEntity>().eq(StringUtils.isNotBlank(dto.getMobile()), "username",
+                new QueryWrapper<SysUserEntity>().like(StringUtils.isNotBlank(dto.getMobile()), "username",
                         dto.getMobile()));
         // 循环处理page获取回来的数据，返回需要的字段
         List<AdminPageUserVO> list = page.getRecords().stream().map(user -> {

@@ -112,39 +112,77 @@ public interface Constant {
     String FILE_EXTENSION_SEG = ".";
 
     /**
+     * mcp接入点路径
+     */
+    String SERVER_MCP_ENDPOINT = "server.mcp_endpoint";
+
+    /**
+     * mcp接入点路径
+     */
+    String SERVER_VOICE_PRINT = "server.voice_print";
+
+    /**
      * 无记忆
      */
     String MEMORY_NO_MEM = "Memory_nomem";
 
     enum SysBaseParam {
         /**
-         * 系统全称
+         * ICP备案号
          */
-        SYS_NAME("SYS_NAME"),
+        BEIAN_ICP_NUM("server.beian_icp_num"),
         /**
-         * 系统简称
+         * GA备案号
          */
-        SYS_SHORT_NAME("SYS_SHORT_NAME"),
+        BEIAN_GA_NUM("server.beian_ga_num"),
         /**
-         * 系统描述
+         * 系统名称
          */
-        SYS_DES("SYS_DES"),
-        /**
-         * 登录失败几次锁定
-         */
-        LOGIN_LOCK_COUNT("LOGIN_LOCK_COUNT"),
-        /**
-         * 账号失败锁定分钟数
-         */
-        LOGIN_LOCK_TIME("LOGIN_LOCK_TIME"),
-        /**
-         * TOKEN强验证
-         */
-        SYS_TOKEN_SECURITY("SYS_TOKEN_SECURITY");
+        SERVER_NAME("server.name");
 
         private String value;
 
         SysBaseParam(String value) {
+            this.value = value;
+        }
+
+        public String getValue() {
+            return value;
+        }
+    }
+
+    /**
+     * 系统短信
+     */
+    enum SysMSMParam {
+        /**
+         * 阿里云授权keyID
+         */
+        ALIYUN_SMS_ACCESS_KEY_ID("aliyun.sms.access_key_id"),
+        /**
+         * 阿里云授权密钥
+         */
+        ALIYUN_SMS_ACCESS_KEY_SECRET("aliyun.sms.access_key_secret"),
+        /**
+         * 阿里云短信签名
+         */
+        ALIYUN_SMS_SIGN_NAME("aliyun.sms.sign_name"),
+        /**
+         * 阿里云短信模板
+         */
+        ALIYUN_SMS_SMS_CODE_TEMPLATE_CODE("aliyun.sms.sms_code_template_code"),
+        /**
+         * 单号码最大短信发送条数
+         */
+        SERVER_SMS_MAX_SEND_COUNT("server.sms_max_send_count"),
+        /**
+         * 是否开启手机注册
+         */
+        SERVER_ENABLE_MOBILE_REGISTER("server.enable_mobile_register");
+
+        private String value;
+
+        SysMSMParam(String value) {
             this.value = value;
         }
 
@@ -199,10 +237,30 @@ public interface Constant {
     /**
      * 版本号
      */
-    public static final String VERSION = "0.4.3";
+    public static final String VERSION = "0.7.3";
 
     /**
      * 无效固件URL
      */
     String INVALID_FIRMWARE_URL = "http://xiaozhi.server.com:8002/xiaozhi/otaMag/download/NOT_ACTIVATED_FIRMWARE_THIS_IS_A_INVALID_URL";
+
+    /**
+     * 字典类型
+     */
+    enum DictType {
+        /**
+         * 手机区号
+         */
+        MOBILE_AREA("MOBILE_AREA");
+
+        private String value;
+
+        DictType(String value) {
+            this.value = value;
+        }
+
+        public String getValue() {
+            return value;
+        }
+    }
 }

@@ -1,22 +1,34 @@
-from config.logger import setup_logging
 import json
+import asyncio
 import uuid
 from core.handle.sendAudioHandle import send_stt_message, send_tts_message
 from core.handle.helloHandle import checkWakeupWords
 from core.utils.util import remove_punctuation_and_length
+from core.providers.tts.dto.dto import ContentType
 from core.utils.dialogue import Message
-from plugins_func.register import Action
-from loguru import logger
+from plugins_func.register import Action, ActionResponse
+from core.providers.tts.dto.dto import TTSMessageDTO, SentenceType
 
 TAG = __name__
 
 
 async def handle_user_intent(conn, text):
+    # 预处理输入文本，处理可能的JSON格式
+    try:
+        if text.strip().startswith('{') and text.strip().endswith('}'):
+            parsed_data = json.loads(text)
+            if isinstance(parsed_data, dict) and "content" in parsed_data:
+                text = parsed_data["content"]  # 提取content用于意图分析
+                conn.current_speaker = parsed_data.get("speaker")  # 保留说话人信息
+    except (json.JSONDecodeError, TypeError):
+        pass
+
     # 检查是否有明确的退出命令
-    if await check_direct_exit(conn, text):
+    filtered_text = remove_punctuation_and_length(text)[1]
+    if await check_direct_exit(conn, filtered_text):
         return True
     # 检查是否是唤醒词
-    if await checkWakeupWords(conn, text):
+    if await checkWakeupWords(conn, filtered_text):
         return True
 
     if conn.intent_type == "function_call":
@@ -26,6 +38,8 @@ async def handle_user_intent(conn, text):
     intent_result = await analyze_intent_with_llm(conn, text)
     if not intent_result:
         return False
+    # 会话开始时生成sentence_id
+    conn.sentence_id = str(uuid.uuid4().hex)
     # 处理各种意图
     return await process_intent_result(conn, intent_result, text)
 
@@ -77,14 +91,11 @@ async def process_intent_result(conn, intent_result, original_text):
             if function_name == "continue_chat":
                 return False
 
-            if function_name == "play_music":
-                funcItem = conn.func_handler.get_function(function_name)
-                if not funcItem:
-                    conn.func_handler.function_registry.register_function("play_music")
-
-            function_args = None
+            function_args = {}
             if "arguments" in intent_data["function_call"]:
                 function_args = intent_data["function_call"]["arguments"]
+                if function_args is None:
+                    function_args = {}
             # 确保参数是字符串格式的JSON
             if isinstance(function_args, dict):
                 function_args = json.dumps(function_args)
@@ -96,34 +107,45 @@ async def process_intent_result(conn, intent_result, original_text):
             }
 
             await send_stt_message(conn, original_text)
+            conn.client_abort = False
 
             # 使用executor执行函数调用和结果处理
             def process_function_call():
                 conn.dialogue.put(Message(role="user", content=original_text))
-                result = conn.func_handler.handle_llm_function_call(
-                    conn, function_call_data
-                )
-                logger.bind(tag=TAG).debug(f"检测到Action : {result.action}")
+
+                # 使用统一工具处理器处理所有工具调用
+                try:
+                    result = asyncio.run_coroutine_threadsafe(
+                        conn.func_handler.handle_llm_function_call(
+                            conn, function_call_data
+                        ),
+                        conn.loop,
+                    ).result()
+                except Exception as e:
+                    conn.logger.bind(tag=TAG).error(f"工具调用失败: {e}")
+                    result = ActionResponse(
+                        action=Action.ERROR, result=str(e), response=str(e)
+                    )
 
                 if result:
                     if result.action == Action.RESPONSE:  # 直接回复前端
                         text = result.response
                         if text is not None:
-                            speak_and_play(conn, text)
+                            speak_txt(conn, text)
                     elif result.action == Action.REQLLM:  # 调用函数后再请求llm生成回复
                         text = result.result
                         conn.dialogue.put(Message(role="tool", content=text))
                         llm_result = conn.intent.replyResult(text, original_text)
                         if llm_result is None:
                             llm_result = text
-                        speak_and_play(conn, llm_result)
+                        speak_txt(conn, llm_result)
                     elif (
                         result.action == Action.NOTFOUND
                         or result.action == Action.ERROR
                     ):
                         text = result.result
                         if text is not None:
-                            speak_and_play(conn, text)
+                            speak_txt(conn, text)
                     elif function_name != "play_music":
                         # For backward compatibility with original code
                         # 获取当前最新的文本索引
@@ -131,7 +153,7 @@ async def process_intent_result(conn, intent_result, original_text):
                         if text is None:
                             text = result.result
                         if text is not None:
-                            speak_and_play(conn, text)
+                            speak_txt(conn, text)
 
             # 将函数执行放在线程池中
             conn.executor.submit(process_function_call)
@@ -142,12 +164,20 @@ async def process_intent_result(conn, intent_result, original_text):
         return False
 
 
-def speak_and_play(conn, text):
-    text_index = (
-        conn.tts_last_text_index + 1 if hasattr(conn, "tts_last_text_index") else 0
+def speak_txt(conn, text):
+    conn.tts.tts_text_queue.put(
+        TTSMessageDTO(
+            sentence_id=conn.sentence_id,
+            sentence_type=SentenceType.FIRST,
+            content_type=ContentType.ACTION,
+        )
     )
-    conn.recode_first_last_text(text, text_index)
-    future = conn.executor.submit(conn.speak_and_play, text, text_index)
-    conn.llm_finish_task = True
-    conn.tts_queue.put((future, text_index))
+    conn.tts.tts_one_sentence(conn, ContentType.TEXT, content_detail=text)
+    conn.tts.tts_text_queue.put(
+        TTSMessageDTO(
+            sentence_id=conn.sentence_id,
+            sentence_type=SentenceType.LAST,
+            content_type=ContentType.ACTION,
+        )
+    )
     conn.dialogue.put(Message(role="assistant", content=text))

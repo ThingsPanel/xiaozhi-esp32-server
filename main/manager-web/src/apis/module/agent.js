@@ -12,7 +12,7 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
-            .fail(() => {
+            .networkFail(() => {
                 RequestService.reAjaxFun(() => {
                     this.getAgentList(callback);
                 });
@@ -28,7 +28,7 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
-            .fail(() => {
+            .networkFail(() => {
                 RequestService.reAjaxFun(() => {
                     this.addAgent(agentName, callback);
                 });
@@ -43,7 +43,7 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
-            .fail(() => {
+            .networkFail(() => {
                 RequestService.reAjaxFun(() => {
                     this.deleteAgent(agentId, callback);
                 });
@@ -58,7 +58,7 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
-            .fail((err) => {
+            .networkFail((err) => {
                 console.error('获取配置失败:', err);
                 RequestService.reAjaxFun(() => {
                     this.getDeviceConfig(agentId, callback);
@@ -75,7 +75,7 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
-            .fail(() => {
+            .networkFail(() => {
                 RequestService.reAjaxFun(() => {
                     this.updateAgentConfig(agentId, configData, callback);
                 });
@@ -90,7 +90,7 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
-            .fail((err) => {
+            .networkFail((err) => {
                 console.error('获取模板失败:', err);
                 RequestService.reAjaxFun(() => {
                     this.getAgentTemplate(callback);
@@ -107,7 +107,7 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
-            .fail(() => {
+            .networkFail(() => {
                 RequestService.reAjaxFun(() => {
                     this.getAgentSessions(agentId, params, callback);
                 });
@@ -122,7 +122,7 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
-            .fail(() => {
+            .networkFail(() => {
                 RequestService.reAjaxFun(() => {
                     this.getAgentChatHistory(agentId, sessionId, callback);
                 });
@@ -137,9 +137,131 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
-            .fail(() => {
+            .networkFail(() => {
                 RequestService.reAjaxFun(() => {
                     this.getAudioId(audioId, callback);
+                });
+            }).send();
+    },
+    // 获取智能体的MCP接入点地址
+    getAgentMcpAccessAddress(agentId, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/mcp/address/${agentId}`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.getAgentMcpAccessAddress(agentId, callback);
+                });
+            }).send();
+    },
+    // 获取智能体的MCP工具列表
+    getAgentMcpToolsList(agentId, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/mcp/tools/${agentId}`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.getAgentMcpToolsList(agentId, callback);
+                });
+            }).send();
+    },
+    // 添加智能体的声纹
+    addAgentVoicePrint(voicePrintData, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/voice-print`)
+            .method('POST')
+            .data(voicePrintData)
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.addAgentVoicePrint(voicePrintData, callback);
+                });
+            }).send();
+    },
+    // 获取指定智能体声纹列表
+    getAgentVoicePrintList(id,callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/voice-print/list/${id}`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.getAgentVoicePrintList(id,callback);
+                });
+            }).send();
+    },
+    // 删除智能体声纹
+    deleteAgentVoicePrint(id, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/voice-print/${id}`)
+            .method('DELETE')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.deleteAgentVoicePrint(id, callback);
+                });
+            }).send();
+    },
+    // 更新智能体声纹
+    updateAgentVoicePrint(voicePrintData, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/voice-print`)
+            .method('PUT')
+            .data(voicePrintData)
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.updateAgentVoicePrint(voicePrintData, callback);
+                });
+            }).send();
+    },
+    // 获取指定智能体用户类型聊天记录
+    getRecentlyFiftyByAgentId(id,callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/${id}/chat-history/user`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.getRecentlyFiftyByAgentId(id,callback);
+                });
+            }).send();
+    },
+    // 获取指定智能体用户类型聊天记录
+    getContentByAudioId(id,callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/${id}/chat-history/audio`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.getContentByAudioId(id,callback);
                 });
             }).send();
     },

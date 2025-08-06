@@ -48,8 +48,7 @@
                         <el-table ref="dictDataTable" :data="dictDataList" style="width: 100%"
                             v-loading="dictDataLoading" element-loading-text="拼命加载中"
                             element-loading-spinner="el-icon-loading"
-                            element-loading-background="rgba(255, 255, 255, 0.7)"
-                            class="data-table"
+                            element-loading-background="rgba(255, 255, 255, 0.7)" class="data-table"
                             header-row-class-name="table-header">
                             <el-table-column label="选择" align="center" width="55">
                                 <template slot-scope="scope">
@@ -539,13 +538,14 @@ export default {
 
 .data-table {
     border-radius: 6px;
-    overflow-y: auto;
+    overflow-y: hidden;
     background-color: transparent !important;
     --table-max-height: calc(100vh - 40vh);
     max-height: var(--table-max-height);
 
     :deep(.el-table__body-wrapper) {
         max-height: calc(var(--table-max-height) - 40px);
+        overflow-y: auto;
     }
 
     :deep(.el-table__body) {

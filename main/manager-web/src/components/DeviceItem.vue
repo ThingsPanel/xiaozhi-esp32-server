@@ -14,21 +14,24 @@
       </div>
     </div>
     <div class="device-name">
-      设备型号：{{ device.ttsModelName }}
+      语言模型：{{ device.llmModelName }}
     </div>
     <div class="device-name">
-      音色模型：{{ device.ttsVoiceName }}
+      音色模型：{{ device.ttsModelName }} ({{ device.ttsVoiceName }})
     </div>
     <div style="display: flex;gap: 10px;align-items: center;">
       <div class="settings-btn" @click="handleConfigure">
         配置角色
+      </div>
+       <div class="settings-btn" @click="handleVoicePrint">
+        声纹识别
       </div>
       <div class="settings-btn" @click="handleDeviceManage">
         设备管理({{ device.deviceCount }})
       </div>
       <div class="settings-btn" @click="handleChatHistory"
         :class="{ 'disabled-btn': device.memModelId === 'Memory_nomem' }">
-        <el-tooltip v-if="device.memModelId === 'Memory_nomem'" content="未开启记忆" placement="top">
+        <el-tooltip v-if="device.memModelId === 'Memory_nomem'" content="请先在“配置角色”界面开启记忆" placement="top">
           <span>聊天记录</span>
         </el-tooltip>
         <span v-else>聊天记录</span>
@@ -76,6 +79,9 @@ export default {
     },
     handleConfigure() {
       this.$router.push({ path: '/role-config', query: { agentId: this.device.agentId } });
+    },
+    handleVoicePrint() {
+      this.$router.push({ path: '/voice-print', query: { agentId: this.device.agentId } });
     },
     handleDeviceManage() {
       this.$router.push({ path: '/device-management', query: { agentId: this.device.agentId } });

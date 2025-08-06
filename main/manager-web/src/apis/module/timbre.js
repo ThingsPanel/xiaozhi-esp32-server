@@ -1,4 +1,4 @@
-import {getServiceUrl} from '../api';
+import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
 
 export default {
@@ -18,7 +18,7 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res.data || []);
             })
-            .fail((err) => {
+            .networkFail((err) => {
                 console.error('获取音色列表失败:', err);
                 RequestService.reAjaxFun(() => {
                     this.getVoiceList(params, callback);
@@ -34,6 +34,8 @@ export default {
                 languages: params.languageType,
                 name: params.voiceName,
                 remark: params.remark,
+                referenceAudio: params.referenceAudio,
+                referenceText: params.referenceText,
                 sort: params.sort,
                 ttsModelId: params.ttsModelId,
                 ttsVoice: params.voiceCode,
@@ -42,7 +44,7 @@ export default {
             .success((res) => {
                 callback(res.data);
             })
-            .fail((err) => {
+            .networkFail((err) => {
                 console.error('保存音色失败:', err);
                 RequestService.reAjaxFun(() => {
                     this.saveVoice(params, callback);
@@ -59,7 +61,7 @@ export default {
                 RequestService.clearRequestTime()
                 callback(res);
             })
-            .fail((err) => {
+            .networkFail((err) => {
                 console.error('删除音色失败:', err);
                 RequestService.reAjaxFun(() => {
                     this.deleteVoice(ids, callback);
@@ -75,6 +77,8 @@ export default {
                 languages: params.languageType,
                 name: params.voiceName,
                 remark: params.remark,
+                referenceAudio: params.referenceAudio,
+                referenceText: params.referenceText,
                 ttsModelId: params.ttsModelId,
                 ttsVoice: params.voiceCode,
                 voiceDemo: params.voiceDemo || ''
@@ -82,7 +86,7 @@ export default {
             .success((res) => {
                 callback(res.data);
             })
-            .fail((err) => {
+            .networkFail((err) => {
                 console.error('修改音色失败:', err);
                 RequestService.reAjaxFun(() => {
                     this.updateVoice(params, callback);
