@@ -73,6 +73,7 @@ stop_tts_notify_voice: "config/assets/tts_notify.mp3"
 exit_commands:
   - "退出"
   - "关闭"
+  - "再见"
 
 xiaozhi:
   type: hello

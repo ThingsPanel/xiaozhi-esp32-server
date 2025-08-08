@@ -20,6 +20,10 @@ class ServerMCPExecutor(ToolExecutor):
             self.mcp_manager = ServerMCPManager(self.conn)
             await self.mcp_manager.initialize_servers()
             self._initialized = True
+            # 输出当前支持的服务端MCP工具列表
+            if hasattr(self.conn, "func_handler") and self.conn.func_handler:
+                self.conn.func_handler.tool_manager.refresh_tools()
+                self.conn.func_handler.current_support_functions()
 
     async def execute(
         self, conn, tool_name: str, arguments: Dict[str, Any]
