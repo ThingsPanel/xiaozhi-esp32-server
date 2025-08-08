@@ -57,9 +57,9 @@ By Professor Siyuan Liu Research and Development Group ( South China University 
 <table>
   <tr>
     <td>
-        <a href="https://www.bilibili.com/video/BV1FMFyejExX" target="_blank">
+        <a href="https://www.bilibili.com/video/BV1C1tCzUEZh" target="_blank">
          <picture>
-           <img alt="小智esp32连接自己的后台模型" src="docs/images/demo1.png" />
+           <img alt="小智医疗救护车场景" src="docs/images/demo1.png" />
          </picture>
         </a>
     </td>
