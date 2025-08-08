@@ -1150,7 +1150,7 @@ class ConnectionHandler:
                         if not self.stop_event.is_set():
                             self.logger.bind(tag=TAG).info("连接超时，准备关闭")
                             # 设置停止事件，防止重复处理
-                            self.stop_event.set()
+                            # self.stop_event.set()
                             # 使用 try-except 包装关闭操作，确保不会因为异常而阻塞
                             try:
                                 await send_tts_message(self, "idle", None)

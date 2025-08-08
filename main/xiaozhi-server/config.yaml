@@ -226,7 +226,7 @@ Intent:
     # 系统默认已经记载"handle_exit_intent(退出识别)"、"play_music(音乐播放)"插件，请勿重复加载
     # 下面是加载查天气、角色切换、加载查新闻的插件示例
     functions:
-      - change_role
+      # - change_role
       - get_weather
       # - get_news_from_chinanews
       - get_news_from_newsnow
