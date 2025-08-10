@@ -2,6 +2,7 @@ import json
 import sqlite3
 import aiohttp
 import asyncio
+import requests
 from typing import Optional, Dict, Any
 from config.logger import setup_logging
 
@@ -169,7 +170,7 @@ class ThingsPanelClient:
             'Content-Type': 'application/json'
         }
         if self.api_token:
-            headers['x-token'] = self.api_token
+            headers['x-api-key'] = self.api_token
             
         # 构建请求体
         payload = {
@@ -199,6 +200,51 @@ class ThingsPanelClient:
         except json.JSONDecodeError as e:
             self.logger.bind(tag=TAG).error(f"获取设备配置响应解析错误: {str(e)}")
             raise Exception(f"获取设备配置响应解析错误: {str(e)}")
+
+    def get_user_info(self, user_id: str) -> tuple[bool, Dict[str, Any]]:
+        """
+        获取租户/用户信息（同步版本）
+        
+        Args:
+            user_id: 用户ID
+            
+        Returns:
+            tuple: (是否成功, 用户信息数据)
+            
+        Raises:
+            Exception: 网络请求失败时抛出异常
+        """
+        url = f"{self.base_url}/user/{user_id}"
+        
+        # 构建请求头
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        if self.api_token:
+            headers['x-api-key'] = self.api_token
+            
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response_data = response.json()
+            
+            self.logger.bind(tag=TAG).info(f"获取用户信息请求: user_id={user_id}")
+            self.logger.bind(tag=TAG).info(f"获取用户信息响应: {response_data}")
+            
+            if response.status_code == 200 and response_data.get('code') == 200:
+                user_info = response_data.get('data', {})
+                self.logger.bind(tag=TAG).info(f"成功获取用户 {user_id} 的信息")
+                return True, user_info
+            else:
+                error_msg = response_data.get('message', f'HTTP {response.status_code}')
+                self.logger.bind(tag=TAG).warning(f"获取用户信息失败: {error_msg}")
+                return False, {}
+                
+        except requests.exceptions.RequestException as e:
+            self.logger.bind(tag=TAG).error(f"获取用户信息错误: {str(e)} {url}")
+            raise Exception(f"获取用户信息错误: {str(e)} {url}")
+        except json.JSONDecodeError as e:
+            self.logger.bind(tag=TAG).error(f"获取用户信息响应解析错误: {str(e)}")
+            raise Exception(f"获取用户信息响应解析错误: {str(e)}")
 
 
 # 便利函数，用于简化使用
@@ -244,6 +290,14 @@ async def get_device_config_by_number(device_number: str) -> tuple:
     return await client.get_device_config(device_number)
 
 
+# 新增一个方法获取TP用户的基础信息
+def get_user_info(user_id: str) -> tuple[bool, Dict[str, Any]]:
+    """
+    获取TP用户的基础信息
+    """
+    client = ThingsPanelClient()
+    return client.get_user_info(user_id)
+
 # 新增一个公共方法用来获取设备信息
 async def get_local_device_info(self, device_id: str) -> dict:
     """获取设备信息
@@ -265,7 +319,7 @@ async def get_local_device_info(self, device_id: str) -> dict:
         if device_info:
             # 定义列名，注意顺序
             columns = ['device_id', 'device_name', 'description', 'template_secret', 
-                        'verify_code', 'status', 'created_at', 'updated_at', 'external_id', 'external_key']
+                        'verify_code', 'status', 'created_at', 'updated_at', 'external_id', 'external_key', 'external_user_id']
             self.logger.bind(tag=TAG).info(f"设备 {device_id} 信息获取成功")
             return dict(zip(columns, device_info))
         else:

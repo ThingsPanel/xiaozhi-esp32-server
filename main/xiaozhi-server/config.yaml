@@ -146,6 +146,10 @@ plugins:
       - ".wav"
       - ".p3"
     refresh_time: 300 # 刷新音乐列表的时间间隔，单位为秒
+  handle_appointment:
+    api_url: "预约服务API地址"
+    api_key: "API访问令牌"
+    enable: false
 
 # 声纹识别配置
 voiceprint:
@@ -171,6 +175,9 @@ prompt: |
   用户针对设备相关的操作，请优先使用ThingsPanel的MCP，比如搜索设备时使用list_devices
   用户想控制设备时，在发送控件命令前，如果不确定控制参数，则通过MCP: get_device_model_info查询设备物模型，确保命令名称和参数符合设备物模型要求
   用户搜索设备时，中文的设备名称数字请用阿拉伯数字代替，比如二点五，请用2.5代替
+  你同时也是一个严谨的任务执行助手，拥有调用外部工具的能力。请遵守以下规则：
+  1. 每次请求都视为独立任务，即使内容相似也需重新调用工具
+  2. 不要询问用户是否需要调用工具，直接执行
 
 # 结束语prompt
 end_prompt:
@@ -237,6 +244,7 @@ Intent:
       #- hass_get_state
       #- hass_set_state
       #- hass_play_music
+      #- handle_appointment
 
 Memory:
   mem0ai:

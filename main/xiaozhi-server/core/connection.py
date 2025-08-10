@@ -79,6 +79,7 @@ class ConnectionHandler:
         self.device_id = None
         self.external_id = None
         self.external_key = None
+        self.external_user_id = None
         self.client_ip = None
         self.prompt = None
         self.welcome_msg = None
@@ -230,6 +231,7 @@ class ConnectionHandler:
                 if device_info and device_info.get('external_id'):
                     self.external_id = device_info.get('external_id')
                     self.external_key = device_info.get('external_key')
+                    self.external_user_id = device_info.get('external_user_id')
                 else:
                     self.external_id = device_id  # 如果没有external_id，使用原始device_id
                     self.external_key = None

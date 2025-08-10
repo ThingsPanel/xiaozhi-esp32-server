@@ -50,7 +50,8 @@ class BaseHandler:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     external_id TEXT,
-                    external_key TEXT
+                    external_key TEXT,
+                    external_user_id TEXT
                 )
             ''')
             
@@ -69,6 +70,14 @@ class BaseHandler:
                 # external_key 字段不存在，添加它
                 self.logger.bind(tag=TAG).info("为 devices 表添加 external_key 字段")
                 db.execute("ALTER TABLE devices ADD COLUMN external_key TEXT")
+
+            # 检查并添加 external_user_id 字段（如果不存在）
+            try:
+                db.execute("SELECT external_user_id FROM devices LIMIT 1")
+            except sqlite3.OperationalError:
+                # external_user_id 字段不存在，添加它
+                self.logger.bind(tag=TAG).info("为 devices 表添加 external_user_id 字段")
+                db.execute("ALTER TABLE devices ADD COLUMN external_user_id TEXT")
             
             # 为 verify_code 创建唯一索引
             db.execute('''

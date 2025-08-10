@@ -131,13 +131,13 @@ class OTAHandler(BaseHandler):
                     self.logger.bind(tag=TAG).info(f"同步{device_id}的external_key")
                     success, device_config = await get_device_config_by_number(device_id)
                     if success:
-                        # 从tenant_user_api_keys数组中取第一个api_key
+                        # 从tenant_user_api_keys数组中取第一个api_key和user_id
                         tenant_user_api_keys = device_config.get('tenant_user_api_keys', [])
                         if tenant_user_api_keys and len(tenant_user_api_keys) > 0:
                             first_api_key = tenant_user_api_keys[0].get('api_key')
                             if first_api_key:
-                                self.update_device_fields(device_id, {"external_key": first_api_key})
-                                self.logger.bind(tag=TAG).info(f"成功更新设备 {device_id} 的external_key为: {first_api_key}")
+                                self.update_device_fields(device_id, {"external_key": first_api_key, "external_user_id": device_config.get('user_id')})
+                                self.logger.bind(tag=TAG).info(f"成功更新设备 {device_id} 的external_key为: {first_api_key} 和 external_user_id为: {device_config.get('user_id')}")
                             else:
                                 self.logger.bind(tag=TAG).warning(f"第一个API key为空: {tenant_user_api_keys[0]}")
                         else:
@@ -314,7 +314,7 @@ class OTAHandler(BaseHandler):
                 self.logger.bind(tag=TAG).info(f"设备 {device_id} 已存在于数据库中")
                 # 将查询结果转换为字典
                 columns = ['device_id', 'device_name', 'description', 'template_secret', 
-                          'verify_code', 'status', 'created_at', 'updated_at', 'external_id', 'external_key']
+                          'verify_code', 'status', 'created_at', 'updated_at', 'external_id', 'external_key', 'external_user_id']
                 return dict(zip(columns, device_info))
             else:
                 # 设备不存在，创建新设备
@@ -409,7 +409,7 @@ class OTAHandler(BaseHandler):
             # 验证字段名是否合法（防止SQL注入）
             allowed_fields = {
                 'device_name', 'description', 'template_secret', 
-                'verify_code', 'status', 'external_id', 'external_key'
+                'verify_code', 'status', 'external_id', 'external_key', 'external_user_id'
             }
             
             for field_name, field_value in fields.items():
