@@ -136,8 +136,8 @@ class OTAHandler(BaseHandler):
                         if tenant_user_api_keys and len(tenant_user_api_keys) > 0:
                             first_api_key = tenant_user_api_keys[0].get('api_key')
                             if first_api_key:
-                                self.update_device_fields(device_id, {"external_key": first_api_key, "external_user_id": device_config.get('user_id')})
-                                self.logger.bind(tag=TAG).info(f"成功更新设备 {device_id} 的external_key为: {first_api_key} 和 external_user_id为: {device_config.get('user_id')}")
+                                self.update_device_fields(device_id, {"external_key": first_api_key, "external_user_id": tenant_user_api_keys[0].get('user_id')})
+                                self.logger.bind(tag=TAG).info(f"成功更新设备 {device_id} 的external_key为: {first_api_key} 和 external_user_id为: {tenant_user_api_keys[0].get('user_id')}")
                             else:
                                 self.logger.bind(tag=TAG).warning(f"第一个API key为空: {tenant_user_api_keys[0]}")
                         else:

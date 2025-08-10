@@ -37,8 +37,8 @@ def get_api_config(conn):
         api_url = appointment_config.get("api_url", "")
         api_key = appointment_config.get("api_key", "")
         
-        if not api_url or not api_key:
-            logger.bind(tag=TAG).warning("预约服务API配置不完整")
+        if not api_url or not api_key or not appointment_config.get("enable"):
+            logger.bind(tag=TAG).warning("预约服务暂时不可用")
             return None
         
         return {
@@ -192,7 +192,7 @@ def handle_appointment(conn, service_type: str, appointment_time: str, additiona
         
         # 获取用户信息
         user_info = {}
-        external_user_id = getattr(conn, 'external_user_id', 'unknown')
+        external_user_id = conn.external_user_id
         
         try:
             if external_user_id != None:
@@ -254,7 +254,7 @@ def handle_appointment(conn, service_type: str, appointment_time: str, additiona
         
         # 获取API配置
         api_config = get_api_config(conn)
-        if not api_config or not api_config.get("enable"):
+        if not api_config:
             return ActionResponse(
                 action=Action.RESPONSE,
                 result="预约服务暂时不可用",
