@@ -49,6 +49,8 @@ class SimpleHttpServer:
                         web.get("/xiaozhi/ota/", self.ota_handler.handle_get),
                         web.post("/xiaozhi/ota/", self.ota_handler.handle_post),
                         web.options("/xiaozhi/ota/", self.ota_handler.handle_post),
+                        # 提供外部接口, 获取可激活设备列表
+                        web.post("/xiaozhi/device/list", self.ota_handler.handle_device_list),
                     ]
                 )
             # 添加路由
