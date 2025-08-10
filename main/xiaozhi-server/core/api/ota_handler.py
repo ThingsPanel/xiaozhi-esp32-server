@@ -2,6 +2,7 @@ import json
 import time
 import sqlite3
 from aiohttp import web
+from core.utils.tp import authenticate_device, get_device_config_by_number, update_device_online_status
 from core.utils.util import get_local_ip
 from core.api.base_handler import BaseHandler
 
@@ -142,9 +143,9 @@ class OTAHandler(BaseHandler):
                         else:
                             self.logger.bind(tag=TAG).warning(f"设备配置中未找到tenant_user_api_keys: {device_config}")
                         
-                        # 如果external_id为空，则自动同步
-                        if device_info.get("external_id") is None or device_info.get("external_id") == "":
-                            self.logger.bind(tag=TAG).info(f"同步{device_id}的external_id")
+                        # 如果设备删除后重新激活，则同步external_id
+                        if device_info.get("external_id") != device_config.get('id'):
+                            self.logger.bind(tag=TAG).info(f"重新同步{device_id}的external_id")
                             self.update_device_fields(device_id, {"external_id": device_config.get('id')})
                     else:
                         self.logger.bind(tag=TAG).info(f"{device_id}获取TP Device Config失败")
