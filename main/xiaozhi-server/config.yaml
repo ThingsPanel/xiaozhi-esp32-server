@@ -147,9 +147,13 @@ plugins:
       - ".p3"
     refresh_time: 300 # 刷新音乐列表的时间间隔，单位为秒
   handle_appointment:
-    api_url: "预约服务API地址"
+    api_enable: false
+    api_url: "预约服务外部API地址"
     api_key: "API访问令牌"
-    enable: false
+    services:
+      "上门保洁": "上门保洁服务, 需要提供上门时间"
+      "上门维修": "上门维修服务, 需要提供上门时间"
+      "购买血糖仪": "购买血糖仪服务"
 
 # 声纹识别配置
 voiceprint:

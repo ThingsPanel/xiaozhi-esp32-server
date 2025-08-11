@@ -1,70 +1,69 @@
+import base64
 import requests
-import json
-from datetime import datetime
-from core.utils.tp import get_user_info
+import yaml
 from plugins_func.register import register_function, ToolType, ActionResponse, Action
 from config.logger import setup_logging
+# 导入paho mqtt客户端
+import paho.mqtt.client as mqtt
+import json
+import time
 
 TAG = __name__
 logger = setup_logging()
 
-# 支持的预约服务类型
-SUPPORTED_SERVICES = {
-    "上门保洁": {
-        "service_code": "SERVICE_CLEANING",
-        "service_name": "上门保洁服务"
-    },
-    "上门测量血压血糖": {
-        "service_code": "SERVICE_HEALTH_CHECK",
-        "service_name": "上门测量血压血糖服务"
-    },
-    "上门维修": {
-        "service_code": "SERVICE_REPAIR",
-        "service_name": "上门维修服务"
-    },
-    "上门护理": {
-        "service_code": "SERVICE_NURSING",
-        "service_name": "上门护理服务"
-    }
-}
+def get_supported_services(conn=None):
+    """从配置中获取支持的预约服务类型"""
+    try:
+        if conn:
+            plugins_config = conn.config.get("plugins", {})
+        else:
+            # 从配置文件中获取
+            with open('data/.config.yaml', 'r') as file:
+                config = yaml.safe_load(file)
+            plugins_config = config.get("plugins", {})
+        appointment_config = plugins_config.get("handle_appointment", {})
+        services = appointment_config.get("services", {})
+        
+        # 如果配置中没有services，返回默认服务
+        if not services:
+            logger.bind(tag=TAG).warning("配置中未找到services，使用默认服务类型")
+            return None
+        
+        return services
+    except Exception as e:
+        logger.bind(tag=TAG).error(f"获取服务类型配置失败: {e}")
+        # 返回默认服务类型作为备选
+        return None
 
-def get_api_config(conn):
+def get_config(conn):
     """从 conn.config 中获取API配置"""
     try:
         plugins_config = conn.config.get("plugins", {})
-        appointment_config = plugins_config.get("handle_appointment", {})
-        
-        api_url = appointment_config.get("api_url", "")
-        api_key = appointment_config.get("api_key", "")
-        
-        if not api_url or not api_key or not appointment_config.get("enable"):
-            logger.bind(tag=TAG).warning("预约服务暂时不可用")
-            return None
-        
-        return {
-            "url": api_url,
-            "timeout": 10,
-            "headers": {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
-            }
-        }
+        appointment_config = plugins_config.get("handle_appointment", {})        
+        return appointment_config
     except Exception as e:
-        logger.bind(tag=TAG).error(f"获取API配置失败: {e}")
+        logger.bind(tag=TAG).error(f"获取配置失败: {e}")
         return None
 
 def get_appointment_function_desc():
     """动态生成函数描述，包含当前支持的服务类型"""
     # 从配置中动态获取服务类型列表
-    service_examples = "、".join(SUPPORTED_SERVICES.keys())
-    
+    supported_services = get_supported_services()
+    if supported_services:  # 如果支持的服务类型不为空
+        service_types = "、".join(supported_services.keys())
+        service_descriptions = "、".join(supported_services.values())
+    else:
+        # 如果没有连接对象，使用默认的服务类型
+        service_types = ""
+        service_descriptions = ""
     return {
         "type": "function",
         "function": {
             "name": "handle_appointment",
             "description": (
-                f"当用户想预约服务时，这个工具可以提供用户预约服务，当前支持的服务类型：{service_examples}。"
-                "要与用户确认服务时间。"
+                f"当用户想预约服务或者购买商品时，这个工具可以提供用户预约服务和购买商品，当前支持：{service_types}。"
+                "如果用户要预约服务，请与用户确认服务时间，需求描述中需要包含服务时间。"
+                "如果用户要购买商品，请与用户确认商品名称。"
                 "**调用规则：**"
                 "1. **严格模式：** 调用时**必须**严格遵循工具要求的模式，提供**所有必要参数**。"
                 "2. **洞察需求：** 结合上下文**深入理解用户真实意图**后再决定调用，避免无意义调用。"
@@ -76,19 +75,15 @@ def get_appointment_function_desc():
                 "properties": {
                     "service_type": {
                         "type": "string",
-                        "description": f"用户要预约的服务类型，支持的服务：{service_examples}",
+                        "description": f"用户要预约的服务类型或者购买的商品，仅限：{service_types}，不要给其他服务类型或者商品",
                     },
-                    "appointment_time": {
+                    "service_description": {
                         "type": "string",
-                        "description": "预约时间，格式：YYYY-MM-DD HH:MM:SS，如：2024-01-15 10:00:00，一定要和用户确认预约时间，不要给历史时间或者默认时间",
-                    },
-                    "additional_info": {
-                        "type": "string",
-                        "description": "额外的预约信息或特殊要求, 不需要询问用户的姓名和地址，因为这些信息在用户信息中已经包含",
+                        "description": f"需求描述, 不需要询问用户的姓名和地址，因为这些信息在系统中已经存在。如果用户要预约服务，请与用户确认服务时间，需求描述中需要包含服务时间。{service_descriptions}",
                         "default": ""
                     }
                 },
-                "required": ["service_type", "appointment_time"],
+                "required": ["service_type", "service_description"],
             },
         },
     }
@@ -97,44 +92,25 @@ def get_appointment_function_desc():
 handle_appointment_function_desc = get_appointment_function_desc()
 
 
-def validate_appointment_time(time_str: str) -> tuple[bool, str]:
-    """验证预约时间格式是否正确"""
-    try:
-        # 验证时间格式 YYYY-MM-DD HH:MM:SS
-        datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
-        
-        # 检查预约时间是否在未来
-        appointment_time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
-        now = datetime.now()
-        
-        if appointment_time <= now:
-            return False, "预约时间必须是未来时间"
-        
-        return True, "时间格式正确"
-        
-    except ValueError:
-        return False, "时间格式不正确，请使用 YYYY-MM-DD HH:MM:SS 格式"
-    except Exception as e:
-        logger.bind(tag=TAG).error(f"验证时间格式失败: {e}")
-        return False, "时间格式验证失败"
-
-
-def check_service_availability(service_type: str) -> tuple[bool, dict]:
+def check_service_availability(conn, service_type: str) -> tuple[bool, str]:
     """检查服务是否在支持范围内"""
-    for key, value in SUPPORTED_SERVICES.items():
+    supported_services = get_supported_services(conn)
+    if not supported_services:
+        return False, ""
+    for key, value in supported_services.items():
         if key in service_type or service_type in key:
             return True, value
-    return False, {}
+    return False, ""
 
 
-def send_appointment_to_api(appointment_data: dict, api_config: dict) -> tuple[bool, str]:
+def send_appointment_to_api(service_data: dict, api_config: dict) -> tuple[bool, str]:
     """发送预约数据到API"""
     try:
         response = requests.post(
-            api_config["url"],
-            json=appointment_data,
-            headers=api_config["headers"],
-            timeout=api_config["timeout"]
+            api_config.get("api_url"),
+            json=service_data,
+            headers=api_config.get("api_key"),
+            timeout=api_config.get("timeout", 10)
         )
         
         if response.status_code == 200:
@@ -161,126 +137,64 @@ def send_appointment_to_api(appointment_data: dict, api_config: dict) -> tuple[b
 @register_function(
     "handle_appointment", handle_appointment_function_desc, ToolType.SYSTEM_CTL
 )
-def handle_appointment(conn, service_type: str, appointment_time: str, additional_info: str = ""):
-    """处理预约服务请求"""
+def handle_appointment(conn, service_type: str, service_description: str):
+    """处理服务请求"""
     try:
-        logger.bind(tag=TAG).info(f"收到预约请求 - 服务类型: {service_type}, 时间: {appointment_time}")
+        logger.bind(tag=TAG).info(f"收到服务请求 - 服务类型: {service_type}, 需求描述: {service_description}")
+
+        
+        supported_services = get_supported_services(conn)
+        if not supported_services:
+            logger.bind(tag=TAG).warning("未配置服务")
+            return ActionResponse(
+                action=Action.RESPONSE,
+                result="预约失败 - 服务不支持",
+                response="当前不提供服务"
+            )
         
         # 检查服务是否在支持范围内
-        is_available, service_info = check_service_availability(service_type)
+        is_available, service_info = check_service_availability(conn, service_type)
         
         if not is_available:
-            error_msg = "预约失败，当前不提供此类服务。我们目前支持：" + "、".join(SUPPORTED_SERVICES.keys())
+            error_msg = f"当前不提供{service_type}服务。我们目前支持：" + "、".join(supported_services.keys())
             logger.bind(tag=TAG).warning(f"不支持的服务类型: {service_type}")
             return ActionResponse(
                 action=Action.RESPONSE,
-                result="预约失败 - 服务类型不支持",
+                result="预约失败 - 服务不支持",
                 response=error_msg
             )
-        
-        # 验证预约时间格式
-        time_valid, time_message = validate_appointment_time(appointment_time)
-        
-        if not time_valid:
-            error_msg = f"预约失败，{time_message}"
-            logger.bind(tag=TAG).warning(f"时间格式错误: {appointment_time} - {time_message}")
-            return ActionResponse(
-                action=Action.RESPONSE,
-                result="预约失败 - 时间格式错误",
-                response=error_msg
-            )
-        
-        # 获取用户信息
-        user_info = {}
-        external_user_id = conn.external_user_id
-        
-        try:
-            if external_user_id != None:
-                success, user_data = get_user_info(external_user_id)
-                if success:
-                    user_info = user_data
-                    logger.bind(tag=TAG).info(f"成功获取用户信息: {user_info.get('name', 'unknown')}")
-                else:
-                    logger.bind(tag=TAG).warning(f"获取用户信息失败: {external_user_id}")
-            else:
-                logger.bind(tag=TAG).warning(f"获取用户信息失败: {external_user_id}")
-                return ActionResponse(
-                    action=Action.RESPONSE,
-                    result="预约失败 - 用户信息获取失败",
-                    response="预约失败 - 用户信息获取失败"
-                )
-        except Exception as e:
-            logger.bind(tag=TAG).error(f"获取用户信息异常: {e}")
-        
-        # 处理地址信息
-        address_info = user_info.get('address', {})
-        full_address = ""
-        if address_info:
-            # 拼接完整地址
-            address_parts = [
-                address_info.get('country', ''),
-                address_info.get('province', ''),
-                address_info.get('city', ''),
-                address_info.get('district', ''),
-                address_info.get('street', ''),
-                address_info.get('detailed_address', '')
-            ]
-            full_address = ''.join([part for part in address_parts if part])
         
         # 构造API请求数据
-        appointment_data = {
-            "service_code": service_info["service_code"],
-            "service_name": service_info["service_name"],
-            "appointment_time": appointment_time,
-            "customer_info": {
-                "customer_id": external_user_id,
-                "customer_name": user_info.get('name', ''),
-                "phone_number": user_info.get('phone_number', ''),
-                "email": user_info.get('email', ''),
-                "address": {
-                    "full_address": full_address,
-                    "country": address_info.get('country', ''),
-                    "province": address_info.get('province', ''),
-                    "city": address_info.get('city', ''),
-                    "district": address_info.get('district', ''),
-                    "detailed_address": address_info.get('detailed_address', ''),
-                    "postal_code": address_info.get('postal_code', ''),
-                    "additional_info": address_info.get('additional_info', '')
-                }
-            },
-            "additional_info": additional_info,
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        service_data = {
+            "service_type": service_type,
+            "service_description": service_description
         }
-        
-        # 获取API配置
-        api_config = get_api_config(conn)
-        if not api_config:
-            return ActionResponse(
-                action=Action.RESPONSE,
-                result="预约服务暂时不可用",
-                response="预约服务暂时不可用"
-            )
-        
-        # 发送到API
-        success, message = send_appointment_to_api(appointment_data, api_config)
-        
-        if success:
-            success_msg = "预约成功，服务人员将尽快与您联系。"
-            logger.bind(tag=TAG).info(f"预约成功: {service_type} - {appointment_time}")
-            return ActionResponse(
-                action=Action.RESPONSE,
-                result="预约成功",
-                response=success_msg
-            )
+
+        # 获取服务配置
+        service_config = get_config(conn)
+
+        # 发送服务数据给TP MQTT
+        mqtt_success, mqtt_message = send_appointment_to_mqtt(conn, service_data)
+        if mqtt_success:
+            response_msg = f"您的{service_type}服务已经提交成功！"
+            logger.bind(tag=TAG).info(f"服务处理成功: {service_type}")
         else:
-            error_msg = f"预约失败，{message}"
-            logger.bind(tag=TAG).error(f"预约失败: {message}")
-            return ActionResponse(
-                action=Action.RESPONSE,
-                result="预约失败",
-                response=error_msg
-            )
-            
+            logger.bind(tag=TAG).warning(f"MQTT发送失败: {mqtt_message}")
+            response_msg = f"您的{service_type}服务提交失败！"
+        
+        if service_config.get("api_enable"):
+            # 发送到API
+            success, message = send_appointment_to_api(service_data, service_config)
+            if success:
+                logger.bind(tag=TAG).info(f"推送API成功: {service_type}")
+        
+        # 返回响应
+        return ActionResponse(
+            action=Action.RESPONSE,
+            result="服务提交成功",
+            response=response_msg
+        )
+                    
     except Exception as e:
         logger.bind(tag=TAG).error(f"处理预约请求错误: {e}")
         return ActionResponse(
@@ -289,19 +203,70 @@ def handle_appointment(conn, service_type: str, appointment_time: str, additiona
             response="预约处理出现异常，请稍后重试。"
         )
 
-
-def get_supported_services():
-    """获取支持的服务列表"""
-    return list(SUPPORTED_SERVICES.keys())
-
-
-if __name__ == "__main__":
-    # 测试代码
-    print("支持的服务类型:")
-    for service in get_supported_services():
-        print(f"- {service}")
-    
-    print("\n动态生成的函数描述:")
-    desc = get_appointment_function_desc()
-    print(f"函数描述: {desc['function']['description']}")
-    print(f"服务类型参数描述: {desc['function']['parameters']['properties']['service_type']['description']}")
+def send_appointment_to_mqtt(conn, service_data: dict):
+    """发送服务数据到TP MQTT"""
+    try:
+        # 获取MQTT配置
+        mqtt_config = conn.config.get('mqtt', {})
+        if not mqtt_config:
+            logger.bind(tag=TAG).warning("未配置MQTT，跳过发送")
+            return True, "未配置MQTT"
+        
+        # 创建MQTT客户端
+        client_id = f"APPOINTMENT_SENDER_{conn.device_id}_{int(time.time())}"
+        client = mqtt.Client(
+            client_id=client_id,
+            clean_session=True,
+            protocol=mqtt.MQTTv311
+        )
+        
+        # 设置认证信息
+        username = mqtt_config.get('username')
+        password = mqtt_config.get('password')
+        if username and password:
+            client.username_pw_set(username, password)
+        
+        # 连接MQTT代理
+        broker_host = mqtt_config.get('host', '127.0.0.1')
+        broker_port = mqtt_config.get('port', 1883)
+        keepalive = mqtt_config.get('keepalive', 60)
+        
+        logger.bind(tag=TAG).info(f"连接MQTT服务器: {broker_host}:{broker_port}")
+        client.connect(broker_host, broker_port, keepalive)
+        
+        # 构造发送主题和消息
+        # 使用设备的external_id作为主题的一部分
+        topic = "devices/telemetry"
+        
+        # 构造消息体
+        # 从service_data构造JSON格式: {service_type: service_description}
+        # 例如: {"上门保洁服务": "明天上午10点"}
+        mqtt_data = {
+            service_data['service_type']: service_data['service_description']
+        }
+        values = base64.b64encode(json.dumps(mqtt_data, ensure_ascii=False).encode('utf-8')).decode('utf-8')
+        message_data = {
+            "device_id": conn.external_id,
+            "values": values
+        }
+        message_json = json.dumps(message_data, ensure_ascii=False)
+        
+        # 发布消息
+        result = client.publish(topic, message_json, qos=0)
+        
+        # 等待消息发送完成
+        client.loop_start()
+        result.wait_for_publish(timeout=10)
+        client.loop_stop()
+        client.disconnect()
+        
+        if result.rc == mqtt.MQTT_ERR_SUCCESS:
+            logger.bind(tag=TAG).info(f"成功发送预约数据到MQTT: {topic} -> {message_json}")
+            return True, "发送成功"
+        else:
+            logger.bind(tag=TAG).error(f"发送MQTT消息失败，错误码: {result.rc}")
+            return False, f"发送失败，错误码: {result.rc}"
+        
+    except Exception as e:
+        logger.bind(tag=TAG).error(f"发送服务数据到TP MQTT失败: {e}")
+        return False, f"发送服务数据到TP MQTT失败: {str(e)}"
