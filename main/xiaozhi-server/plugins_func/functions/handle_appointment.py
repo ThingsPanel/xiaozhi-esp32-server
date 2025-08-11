@@ -7,6 +7,7 @@ from config.logger import setup_logging
 import paho.mqtt.client as mqtt
 import json
 import time
+import random
 
 TAG = __name__
 logger = setup_logging()
@@ -52,6 +53,10 @@ def get_appointment_function_desc():
     if supported_services:  # 如果支持的服务类型不为空
         service_types = "、".join(supported_services.keys())
         service_descriptions = "、".join(supported_services.values())
+        service_keys = list(supported_services.keys())
+        # 随机取最多5个服务类型
+        sampled_keys = random.sample(service_keys, min(5, len(service_keys))) if service_keys else []
+        service_example_types = "、".join(sampled_keys) + ("等" if len(service_keys) > 5 else "")
     else:
         # 如果没有连接对象，使用默认的服务类型
         service_types = ""
@@ -61,7 +66,7 @@ def get_appointment_function_desc():
         "function": {
             "name": "handle_appointment",
             "description": (
-                f"当用户想预约服务或者购买商品时，这个工具可以提供用户预约服务和购买商品，当前支持：{service_types}。"
+                f"当用户想预约服务或者购买商品时，这个工具可以提供用户预约服务和购买商品，当前支持：{service_example_types}。"
                 "如果用户要预约服务，请与用户确认服务时间，需求描述中需要包含服务时间。"
                 "如果用户要购买商品，请与用户确认商品名称。"
                 "**调用规则：**"
@@ -156,7 +161,11 @@ def handle_appointment(conn, service_type: str, service_description: str):
         is_available, service_info = check_service_availability(conn, service_type)
         
         if not is_available:
-            error_msg = f"当前不提供{service_type}服务。我们目前支持：" + "、".join(supported_services.keys())
+            service_keys = list(supported_services.keys())
+            example_services = random.sample(service_keys, min(5, len(service_keys))) if service_keys else []
+            error_msg = (
+                f"当前不提供{service_type}服务。我们目前支持：" + "、".join(example_services) + ("等" if len(service_keys) > 5 else "")
+            )
             logger.bind(tag=TAG).warning(f"不支持的服务类型: {service_type}")
             return ActionResponse(
                 action=Action.RESPONSE,
