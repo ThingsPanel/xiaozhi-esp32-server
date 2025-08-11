@@ -12,18 +12,19 @@ TAG = __name__
 class ThingsPanelClient:
     """ThingsPanel API客户端类"""
     
-    def __init__(self):
+    def __init__(self, template_secret):
         """
         初始化ThingsPanel客户端
         """
         self.logger = setup_logging()
+        self.template_secret = template_secret
 
         # 获取voucher.json配置
         with open("data/voucher.json", "r") as f:
             voucher_data = json.load(f)
 
-        # 解析嵌套的JSON字符串
-        voucher_str = voucher_data.get("voucher", "{}")
+        # 解析嵌套的JSON字符串, 通过template_secret获取对应的voucher数据，支持多租户模式
+        voucher_str = voucher_data.get(template_secret,  voucher_data.get("voucher", "{}"))
         try:
             voucher_obj = json.loads(voucher_str)
             # 获取ThingsPanel的接入信息
@@ -34,7 +35,7 @@ class ThingsPanelClient:
             self.base_url = None
             self.api_token = None
         
-    async def device_auth(self, template_secret: str, device_number: str, 
+    async def device_auth(self, device_number: str, 
                          device_name: str = None, product_key: str = None) -> tuple[bool, Dict[str, Any]]:
         """
         设备动态认证（一型一密）
@@ -62,7 +63,7 @@ class ThingsPanelClient:
             
         # 构建请求体
         payload = {
-            'template_secret': template_secret,
+            'template_secret': self.template_secret,
             'device_number': device_number
         }
         
@@ -257,11 +258,11 @@ async def authenticate_device(template_secret: str,
     Returns:
         tuple: (认证是否成功, 认证结果数据)
     """
-    client = ThingsPanelClient()
-    return await client.device_auth(template_secret, device_number, device_name, product_key)
+    client = ThingsPanelClient(template_secret)
+    return await client.device_auth(device_number, device_name, product_key)
 
 
-async def update_device_online_status(device_number: str, is_online: bool) -> Dict[str, Any]:
+async def update_device_online_status(template_secret: str, device_number: str, is_online: bool) -> Dict[str, Any]:
     """
     设备状态更新便利函数
     
@@ -272,11 +273,11 @@ async def update_device_online_status(device_number: str, is_online: bool) -> Di
     Returns:
         Dict: 更新结果
     """
-    client = ThingsPanelClient()
+    client = ThingsPanelClient(template_secret)
     return await client.update_device_status(device_number, is_online)
 
 # 获取设备配置
-async def get_device_config_by_number(device_number: str) -> tuple:
+async def get_device_config_by_number(template_secret: str, device_number: str) -> tuple:
     """
     通过设备编号获取设备配置
     
@@ -286,16 +287,16 @@ async def get_device_config_by_number(device_number: str) -> tuple:
     Returns:
         tuple: (是否成功, 设备配置数据)
     """
-    client = ThingsPanelClient()
+    client = ThingsPanelClient(template_secret)
     return await client.get_device_config(device_number)
 
 
 # 新增一个方法获取TP用户的基础信息
-def get_user_info(user_id: str) -> tuple[bool, Dict[str, Any]]:
+def get_user_info(template_secret: str, user_id: str) -> tuple[bool, Dict[str, Any]]:
     """
     获取TP用户的基础信息
     """
-    client = ThingsPanelClient()
+    client = ThingsPanelClient(template_secret)
     return client.get_user_info(user_id)
 
 # 新增一个公共方法用来获取设备信息

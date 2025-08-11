@@ -80,6 +80,7 @@ class ConnectionHandler:
         self.external_id = None
         self.external_key = None
         self.external_user_id = None
+        self.template_secret = None
         self.client_ip = None
         self.prompt = None
         self.welcome_msg = None
@@ -220,18 +221,19 @@ class ConnectionHandler:
             # 更新设备状态为在线
             device_id = self.headers.get("device-id")
             if device_id:
-                # 异步调用需要用 asyncio.run_coroutine_threadsafe
-                self.logger.bind(tag=TAG).info(f"开始更新设备状态为在线: {device_id}")
-                asyncio.run_coroutine_threadsafe(
-                    update_device_online_status(device_id, True),
-                    self.loop
-                )
                 # 获取设备的external_id
                 device_info = await get_local_device_info(self, device_id)
                 if device_info and device_info.get('external_id'):
                     self.external_id = device_info.get('external_id')
                     self.external_key = device_info.get('external_key')
                     self.external_user_id = device_info.get('external_user_id')
+                    self.template_secret = device_info.get('template_secret')
+                    # 异步调用需要用 asyncio.run_coroutine_threadsafe
+                    self.logger.bind(tag=TAG).info(f"开始更新设备状态为在线: {device_id}")
+                    asyncio.run_coroutine_threadsafe(
+                        update_device_online_status(self.template_secret, device_id, True),
+                        self.loop
+                    )
                 else:
                     self.external_id = device_id  # 如果没有external_id，使用原始device_id
                     self.external_key = None
@@ -260,7 +262,7 @@ class ConnectionHandler:
                 if device_id:
                     try:
                         asyncio.run_coroutine_threadsafe(
-                            update_device_online_status(device_id, False),
+                            update_device_online_status(self.template_secret, device_id, False),
                             self.loop
                         )
                     except Exception as e:
@@ -324,7 +326,7 @@ class ConnectionHandler:
                 if device_id:
                     try:
                         asyncio.run_coroutine_threadsafe(
-                            update_device_online_status(device_id, False),
+                            update_device_online_status(self.template_secret, device_id, False),
                             self.loop
                         )
                     except Exception as e:

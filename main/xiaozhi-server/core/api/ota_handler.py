@@ -73,17 +73,25 @@ class OTAHandler(BaseHandler):
                 },
             }
 
-            # 获取voucher.json配置
-            with open("data/voucher.json", "r") as f:
-                voucher_data = json.load(f)
-
-            # 解析嵌套的JSON字符串
-            voucher_str = voucher_data.get("voucher", "{}")
+            # 获取voucher.json配置，通过template_secret查找对应的voucher数据
             try:
-                voucher_obj = json.loads(voucher_str)
-                tp_auth_type = voucher_obj.get("auth_type", "manual")
-            except json.JSONDecodeError:
-                self.logger.bind(tag=TAG).error(f"无法解析voucher JSON字符串: {voucher_str}")
+                with open("data/voucher.json", "r") as f:
+                    voucher_storage = json.load(f)
+                
+                # 使用template_secret作为key获取对应的voucher数据
+                voucher_str = voucher_storage.get(template_secret,  voucher_storage.get("voucher", "{}"))
+                if not voucher_str or voucher_str == "{}":
+                    self.logger.bind(tag=TAG).warning(f"未找到template_secret为{template_secret}的voucher配置")
+                    tp_auth_type = "manual"  # 设置默认值
+                else:
+                    try:
+                        voucher_obj = json.loads(voucher_str)
+                        tp_auth_type = voucher_obj.get("auth_type", "manual")
+                    except json.JSONDecodeError:
+                        self.logger.bind(tag=TAG).error(f"无法解析voucher JSON字符串: {voucher_str}")
+                        tp_auth_type = "manual"  # 设置默认值
+            except (FileNotFoundError, json.JSONDecodeError):
+                self.logger.bind(tag=TAG).warning("voucher.json文件不存在或格式错误")
                 tp_auth_type = "manual"  # 设置默认值
 
             # 检查设备是否存在于数据库中，如果不存在则自动创建此设备
@@ -93,7 +101,7 @@ class OTAHandler(BaseHandler):
                 raise Exception("设备检查或创建失败")
             else:
                 # 同步更新设备状态为在线, 如果TP中不存在此设备则会返回False
-                is_online = await update_device_online_status(device_id, True)
+                is_online = await update_device_online_status(template_secret, device_id, True)
 
                 # 如果此接入点开启了自动认证，则调用TP的一型一密接口自动认证并生成TP Device
                 if tp_auth_type == "auto":
@@ -129,7 +137,7 @@ class OTAHandler(BaseHandler):
                     self.update_device_fields(device_id, {"status": "activated"})
                     # 强制同步external_key
                     self.logger.bind(tag=TAG).info(f"同步{device_id}的external_key")
-                    success, device_config = await get_device_config_by_number(device_id)
+                    success, device_config = await get_device_config_by_number(template_secret, device_id)
                     if success:
                         # 从tenant_user_api_keys数组中取第一个api_key和user_id
                         tenant_user_api_keys = device_config.get('tenant_user_api_keys', [])
@@ -209,11 +217,39 @@ class OTAHandler(BaseHandler):
             page = data.get('page')
             
             # 将接入点信息写入本地文件缓存
-            with open("data/voucher.json", "w") as f:
-                json.dump({
-                    "voucher": voucher,
-                    "service_identifier": service_identifier
-                }, f)
+            # 解析voucher JSON字符串获取TemplateSecret作为key
+            try:
+                voucher_data = json.loads(voucher)
+                template_secret = voucher_data.get('TemplateSecret')
+                
+                if not template_secret:
+                    return web.json_response({
+                        "code": 10001,
+                        "message": "voucher中缺少TemplateSecret",
+                        "data": None
+                    }, status=400)
+                
+                # 读取现有的voucher文件（如果存在）
+                voucher_storage = {}
+                try:
+                    with open("data/voucher.json", "r") as f:
+                        voucher_storage = json.load(f)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    voucher_storage = {}
+                
+                # 使用TemplateSecret作为key，原始voucher数据作为value
+                voucher_storage[template_secret] = voucher
+                
+                # 写入更新后的数据
+                with open("data/voucher.json", "w") as f:
+                    json.dump(voucher_storage, f, indent=2)
+                    
+            except json.JSONDecodeError as e:
+                return web.json_response({
+                    "code": 10001,
+                    "message": f"voucher JSON格式错误: {str(e)}",
+                    "data": None
+                }, status=400)
 
             # 验证必需参数
             if not all([voucher, page_size, page]):
