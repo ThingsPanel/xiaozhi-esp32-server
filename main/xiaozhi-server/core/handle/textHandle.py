@@ -64,6 +64,7 @@ async def handleTextMessage(conn, message):
                         conn.client_is_speaking = False
                     elif is_wakeup_words:
                         conn.just_woken_up = True
+                        conn.wakeup_time = time.time()  # 记录唤醒时间
                         # 上报纯文字数据（复用ASR上报功能，但不提供音频数据）
                         enqueue_asr_report(conn, "嘿，你好呀", [])
                         await startToChat(conn, "嘿，你好呀")

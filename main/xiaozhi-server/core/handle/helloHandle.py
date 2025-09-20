@@ -64,6 +64,7 @@ async def checkWakeupWords(conn, text):
         return False
 
     conn.just_woken_up = True
+    conn.wakeup_time = time.time()  # 记录唤醒时间
     await send_stt_message(conn, text)
 
     # 获取当前音色

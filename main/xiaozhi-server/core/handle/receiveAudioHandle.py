@@ -16,12 +16,22 @@ async def handleAudioMessage(conn, audio):
     have_voice = conn.vad.is_vad(conn, audio)
     # 如果设备刚刚被唤醒，短暂忽略VAD检测
     if have_voice and hasattr(conn, "just_woken_up") and conn.just_woken_up:
-        have_voice = False
-        # 设置一个短暂延迟后恢复VAD检测
-        conn.asr_audio.clear()
-        if not hasattr(conn, "vad_resume_task") or conn.vad_resume_task.done():
-            conn.vad_resume_task = asyncio.create_task(resume_vad_detection(conn))
-        return
+        # 检查唤醒时间，只有在唤醒后很短时间内才忽略VAD检测
+        # 这样可以避免用户唤醒后立即说话被误判为设备回复音频
+        current_time = time.time()
+        wakeup_time = getattr(conn, "wakeup_time", 0)
+        
+        # 只有在唤醒后1秒内才忽略VAD检测
+        if current_time - wakeup_time < 1.0:
+            have_voice = False
+            # 设置一个短暂延迟后恢复VAD检测
+            conn.asr_audio.clear()
+            if not hasattr(conn, "vad_resume_task") or conn.vad_resume_task.done():
+                conn.vad_resume_task = asyncio.create_task(resume_vad_detection(conn))
+            return
+        else:
+            # 超过1秒后，清除just_woken_up标志，恢复正常VAD检测
+            conn.just_woken_up = False
 
     if have_voice:
         if conn.client_is_speaking:
@@ -33,10 +43,9 @@ async def handleAudioMessage(conn, audio):
 
 
 async def resume_vad_detection(conn):
-    # 等待2秒后恢复VAD检测
+    # 等待1秒后恢复VAD检测
     await asyncio.sleep(1)
     conn.just_woken_up = False
-
 
 async def startToChat(conn, text):
     # 检查输入是否是JSON格式（包含说话人信息）
