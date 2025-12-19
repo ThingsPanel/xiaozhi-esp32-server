@@ -133,6 +133,13 @@ class ServerMCPManager:
                     # 重新初始化客户端
                     config = self.load_config()
                     if client_name in config:
+
+                        # 动态加载thingspanel的api key
+                        if client_name == "thingspanel" and self.conn.external_key != None:
+                            # 取到connection中的external_key，只有在有值时才设置
+                            config[client_name]["env"]["THINGSPANEL_API_KEY"] = self.conn.external_key
+                            self.conn.logger.bind(tag=TAG).info(f"为 thingspanel 服务设置 API_KEY: {self.conn.external_key[:10]}...")
+
                         client = ServerMCPClient(config[client_name])
                         await client.initialize()
                         self.clients[client_name] = client
